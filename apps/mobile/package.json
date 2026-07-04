@@ -10,5 +10,8 @@
   "devDependencies": {
     "@specforge/config-typescript": "workspace:*",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@specforge/design-tokens": "workspace:^"
   }
 }

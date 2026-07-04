@@ -9,7 +9,8 @@
   "scripts": {
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "tokens:generate": "pnpm --filter @specforge/design-tokens generate"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
