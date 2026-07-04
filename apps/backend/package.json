@@ -3,12 +3,24 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "pnpm clean && vitest run",
+    "test:watch": "vitest",
     "lint": "echo 'backend lint placeholder'"
   },
   "devDependencies": {
     "@specforge/config-typescript": "workspace:*",
-    "typescript": "^5.7.0"
+    "@types/node": "^26.1.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@trpc/server": "^11.18.0",
+    "fastify": "^5.9.0",
+    "zod": "^4.4.3"
   }
 }
