@@ -5,7 +5,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "lint": "echo 'web lint placeholder'"
+    "lint": "eslint src/"
   },
   "devDependencies": {
     "@specforge/config-typescript": "workspace:*",
