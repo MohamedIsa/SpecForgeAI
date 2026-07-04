@@ -1,0 +1,14 @@
+{
+  "name": "@specforge/backend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "lint": "echo 'backend lint placeholder'"
+  },
+  "devDependencies": {
+    "@specforge/config-typescript": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}

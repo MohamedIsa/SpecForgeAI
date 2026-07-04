@@ -1,0 +1,14 @@
+**/node_modules
+
+backlog.json
+
+.agent/
+.claude/
+.agents/
+
+.env
+.env.local
+.env.*.local 
+kilo.json
+
+**/dist/

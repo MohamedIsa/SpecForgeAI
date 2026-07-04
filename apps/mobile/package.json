@@ -1,0 +1,14 @@
+{
+  "name": "@specforge/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "lint": "echo 'mobile lint placeholder'"
+  },
+  "devDependencies": {
+    "@specforge/config-typescript": "workspace:*",
+    "typescript": "^5.7.0"
+  }
+}
