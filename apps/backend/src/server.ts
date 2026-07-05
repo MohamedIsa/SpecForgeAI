@@ -4,6 +4,7 @@ import Fastify from "fastify";
 
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/router";
+import { registerOpenAPI } from "./swagger";
 
 export async function buildApp() {
   const server = Fastify({ logger: true });
@@ -11,6 +12,8 @@ export async function buildApp() {
   await server.register(cors, {
     origin: true,
   });
+
+  await registerOpenAPI(server);
 
   await server.register(fastifyTRPCPlugin, {
     prefix: "/trpc",
