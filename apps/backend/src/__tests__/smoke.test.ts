@@ -178,7 +178,7 @@ describe("E2E smoke test", () => {
 
     const res = await server.inject({
       method: "GET",
-      url: `/trpc/brd.getUploadStatus?input=${encodeURIComponent(JSON.stringify({ uploadId }))}`,
+      url: `/trpc/brd.getUploadStatus?input=${encodeURIComponent(JSON.stringify(uploadId))}`,
     });
 
     expect(res.statusCode).toBe(200);

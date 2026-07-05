@@ -111,7 +111,7 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
                 in: "query",
                 required: true,
                 description:
-                  'JSON string, e.g. {"uploadId":"abc123"}',
+                  'JSON-encoded string, e.g. "abc123" (sent as ?input=%22abc123%22)',
                 schema: { type: "string" },
               },
             ],

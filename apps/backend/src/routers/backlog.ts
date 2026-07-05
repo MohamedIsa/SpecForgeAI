@@ -178,7 +178,7 @@ export const backlogRouter = router({
     .input(
       z.object({
         epicId: z.string().optional(),
-      }),
+      }).default({}),
     )
     .query(async ({ input }) => {
       const pool = getPool();

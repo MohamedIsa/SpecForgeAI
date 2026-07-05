@@ -31,12 +31,12 @@ export const brdRouter = router({
     }),
 
   getUploadStatus: publicProcedure
-    .input(z.object({ uploadId: z.string().min(1) }))
+    .input(z.string().min(1))
     .query(async ({ input }) => {
       const pool = getPool();
 
       try {
-        const status = await ExtractionPipeline.getStatus(pool, input.uploadId);
+        const status = await ExtractionPipeline.getStatus(pool, input);
 
         return status;
       } catch (err) {

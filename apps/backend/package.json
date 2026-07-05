@@ -10,7 +10,7 @@
     "test": "pnpm clean && vitest run",
     "test:smoke": "pnpm clean && vitest run --config vitest.smoke.config.ts",
     "test:watch": "vitest",
-    "db:migrate": "node-pg-migrate --migrations-dir migrations",
+    "db:migrate": "node-pg-migrate --migrations-dir migrations up",
     "db:migrate:create": "node-pg-migrate create",
     "lint": "eslint src/"
   },

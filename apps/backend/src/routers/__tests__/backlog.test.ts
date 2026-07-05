@@ -104,6 +104,16 @@ describe("getBacklog", () => {
     const firstCall = mockPoolQuery.mock.calls[0] as unknown[];
     expect(firstCall[0]).toContain("WHERE id = $1");
   });
+
+  it("works without any input arguments", async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({ rows: [] });
+
+    const caller = createCaller();
+    await caller.backlog.getBacklog();
+
+    expect(mockPoolQuery).toHaveBeenCalled();
+  });
 });
 
 describe("createTicket", () => {
@@ -404,5 +414,48 @@ describe("extractTicketFromPrompt", () => {
         epicId: "epic-0",
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+});
+
+describe("brd.getUploadStatus", () => {
+  beforeEach(() => {
+    mockPoolQuery.mockReset();
+  });
+
+  it("accepts a plain string uploadId", async () => {
+    const { brdRouter } = await import("../brd");
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "upload-1",
+          file_name: "doc.txt",
+          file_path: "/uploads/doc.txt",
+          status: "completed",
+          validation_report: { matchScore: 90 },
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ],
+    });
+
+    const caller = t
+      .router({ brd: brdRouter })
+      .createCaller({ req: {} as Context["req"], res: {} as Context["res"] });
+    const result = await caller.brd.getUploadStatus("upload-1");
+
+    expect(result.status).toBe("completed");
+  });
+
+  it("throws NOT_FOUND for unknown upload ID", async () => {
+    const { brdRouter } = await import("../brd");
+    mockPoolQuery.mockResolvedValueOnce({ rows: [] });
+
+    const caller = t
+      .router({ brd: brdRouter })
+      .createCaller({ req: {} as Context["req"], res: {} as Context["res"] });
+
+    await expect(
+      caller.brd.getUploadStatus("unknown-id"),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
