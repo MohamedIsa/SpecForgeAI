@@ -53,6 +53,7 @@ export interface BrdUpload {
   status: UploadStatus;
   validation_report: Record<string, unknown> | null;
   created_at: Date;
+  updated_at: Date | null;
 }
 
 export interface TechStack {

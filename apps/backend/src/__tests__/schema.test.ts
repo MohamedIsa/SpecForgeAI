@@ -134,6 +134,7 @@ describe("brd_uploads entity shape", () => {
       status: "pending",
       validation_report: null,
       created_at: new Date(),
+      updated_at: null,
     };
 
     expect(upload.id).toBe("upload-1");
