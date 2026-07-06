@@ -53,4 +53,26 @@ export const brdRouter = router({
         });
       }
     }),
+
+  listProjects: publicProcedure
+    .query(async () => {
+      const pool = getPool();
+
+      const result = await pool.query(
+        `SELECT id, file_name, status, created_at
+         FROM brd_uploads
+         ORDER BY created_at DESC`,
+      );
+
+      const projects = (result.rows as Array<Record<string, unknown>>).map(
+        (r) => ({
+          id: r["id"],
+          fileName: r["file_name"],
+          status: r["status"],
+          createdAt: r["created_at"],
+        }),
+      );
+
+      return projects;
+    }),
 });

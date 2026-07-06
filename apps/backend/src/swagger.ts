@@ -144,6 +144,44 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
             },
           },
         },
+        "/trpc/brd.listProjects": {
+          get: {
+            tags: ["BRD"],
+            summary: "List all uploaded projects",
+            operationId: "listProjects",
+            responses: {
+              "200": {
+                description: "List of uploaded projects",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: {
+                        result: {
+                          type: "object",
+                          properties: {
+                            data: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  id: { type: "string" },
+                                  fileName: { type: "string" },
+                                  status: { type: "string" },
+                                  createdAt: { type: "string" },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         "/trpc/backlog.getBacklog": {
           get: {
             tags: ["Backlog"],
@@ -155,7 +193,7 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
                 in: "query",
                 required: false,
                 description:
-                  'Optional JSON string, e.g. {"epicId":"epic-0"}',
+                  'Optional JSON string, e.g. {"epicId":"epic-0"} or {"projectId":"proj-123"}',
                 schema: { type: "string" },
               },
             ],
@@ -187,7 +225,7 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
         "/trpc/backlog.createTicket": {
           post: {
             tags: ["Backlog"],
-            summary: "Create a ticket manually",
+            summary: "AI-assisted ticket creation from title and description",
             operationId: "createTicket",
             requestBody: {
               required: true,
@@ -195,25 +233,12 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
                 "application/json": {
                   schema: {
                     type: "object",
-                    required: ["id", "epicId", "title", "type", "priority", "storyPoints"],
+                    required: ["title", "description", "epicId", "projectId"],
                     properties: {
-                      id: { type: "string" },
-                      epicId: { type: "string" },
                       title: { type: "string" },
-                      type: { type: "string" },
-                      priority: { type: "string" },
-                      storyPoints: { type: "number" },
-                      status: { type: "string" },
-                      dependencies: {
-                        type: "array",
-                        items: { type: "string" },
-                      },
                       description: { type: "string" },
-                      acceptanceCriteria: {
-                        type: "array",
-                        items: { type: "string" },
-                      },
-                      aiDevPrompt: { type: "string" },
+                      epicId: { type: "string" },
+                      projectId: { type: "string" },
                     },
                   },
                 },
@@ -269,28 +294,7 @@ export async function registerOpenAPI(server: FastifyInstance): Promise<void> {
             },
             responses: {
               "200": {
-                description: "Status updated",
-                content: {
-                  "application/json": {
-                    schema: {
-                      type: "object",
-                      properties: {
-                        result: {
-                          type: "object",
-                          properties: {
-                            data: {
-                              type: "object",
-                              properties: {
-                                id: { type: "string" },
-                                status: { type: "string" },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
+                description: "Status updated successfully (void response)",
               },
             },
           },

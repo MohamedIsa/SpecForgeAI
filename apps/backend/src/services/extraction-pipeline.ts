@@ -95,7 +95,7 @@ export class ExtractionPipeline {
         targetTechStack: input.targetTechStack,
       });
 
-      await this.storeExtractionResult(result);
+      await this.storeExtractionResult(uploadId, result);
 
       await this.updateUploadStatus(uploadId, "completed", result.validationReport as unknown as Record<string, unknown>);
     } catch (err) {
@@ -151,6 +151,7 @@ export class ExtractionPipeline {
   }
 
   private async storeExtractionResult(
+    uploadId: string,
     result: ExtractionResult,
   ): Promise<void> {
     const client = await this.pool.connect();
@@ -160,10 +161,10 @@ export class ExtractionPipeline {
 
       for (const epic of result.epics) {
         await client.query(
-          `INSERT INTO epics (id, title, description)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (id) DO UPDATE SET title = $2, description = $3`,
-          [epic.id, epic.title, epic.description],
+          `INSERT INTO epics (id, title, description, brd_upload_id)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (id) DO UPDATE SET title = $2, description = $3, brd_upload_id = $4`,
+          [epic.id, epic.title, epic.description, uploadId],
         );
 
         for (const ticket of epic.tickets) {

@@ -105,6 +105,31 @@ describe("getBacklog", () => {
     expect(firstCall[0]).toContain("WHERE id = $1");
   });
 
+  it("filters by projectId", async () => {
+    mockPoolQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "epic-0",
+            title: "Foundation",
+            description: "Setup",
+            brd_upload_id: "proj-123",
+            created_at: new Date(),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const caller = createCaller();
+    const result = await caller.backlog.getBacklog({ projectId: "proj-123" });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("epic-0");
+
+    const firstCall = mockPoolQuery.mock.calls[0] as unknown[];
+    expect(firstCall[0]).toContain("brd_upload_id = $1");
+  });
+
   it("works without any input arguments", async () => {
     mockPoolQuery
       .mockResolvedValueOnce({ rows: [] });
@@ -120,29 +145,64 @@ describe("createTicket", () => {
   beforeEach(() => {
     mockPoolQuery.mockReset();
     mockPoolQuery.mockResolvedValue({ rows: [] });
+    mockAICreate.mockReset();
   });
 
-  it("creates a ticket with valid input", async () => {
-    const caller = createCaller();
-    const result = await caller.backlog.createTicket({
-      id: "EPIC-0-T2",
-      epicId: "epic-0",
-      title: "New Feature",
-      type: "feature",
-      priority: "P1",
-      storyPoints: 3,
-      status: "backlog",
-      dependencies: [],
-      description: "Implement feature",
-      acceptanceCriteria: ["Given x When y Then z"],
-      aiDevPrompt: "Detailed instructions",
+  it("AI-assisted createTicket generates and persists a ticket", async () => {
+    mockAICreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              type: "feature",
+              priority: "P1",
+              storyPoints: 3,
+              dependencies: [],
+              acceptanceCriteria: [
+                "Given a request When called Then AI generates ticket",
+                "Given generated data When validated Then it passes",
+                "Given valid ticket When persisted Then it's in DB",
+              ],
+              aiDevPrompt: "Implement the feature with tests.",
+            }),
+          },
+        },
+      ],
     });
 
-    expect(result.id).toBe("EPIC-0-T2");
+    const caller = createCaller();
+    const result = await caller.backlog.createTicket({
+      title: "New Feature",
+      description: "Implement a new feature",
+      epicId: "epic-0",
+      projectId: "PROJ-1",
+    });
+
+    expect(result.id).toBeDefined();
     expect(result.title).toBe("New Feature");
   });
 
   it("throws TRPCError on foreign key violation", async () => {
+    mockAICreate.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              type: "feature",
+              priority: "P1",
+              storyPoints: 3,
+              dependencies: [],
+              acceptanceCriteria: [
+                "Given x When y Then z",
+                "Given a When b Then c",
+                "Given p When q Then r",
+              ],
+              aiDevPrompt: "Test prompt",
+            }),
+          },
+        },
+      ],
+    });
     mockPoolQuery.mockRejectedValue(
       new Error("violates foreign key constraint"),
     );
@@ -151,17 +211,10 @@ describe("createTicket", () => {
 
     await expect(
       caller.backlog.createTicket({
-        id: "T-1",
-        epicId: "nonexistent",
         title: "Orphan",
-        type: "feature",
-        priority: "P1",
-        storyPoints: 2,
-        status: "backlog",
-        dependencies: [],
-        description: "",
-        acceptanceCriteria: [],
-        aiDevPrompt: "",
+        description: "No matching epic",
+        epicId: "nonexistent",
+        projectId: "PROJ-1",
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
@@ -178,18 +231,15 @@ describe("updateTicketStatus", () => {
         rows: [{ dependencies: [] }],
       })
       .mockResolvedValueOnce({
-        rows: [{ id: "EPIC-0-T1", status: "done" }],
+        rows: [{ id: "EPIC-0-T1" }],
       });
 
     const caller = createCaller();
 
-    const result = await caller.backlog.updateTicketStatus({
+    await caller.backlog.updateTicketStatus({
       ticketId: "EPIC-0-T1",
       status: "done",
     });
-
-    expect(result.id).toBe("EPIC-0-T1");
-    expect(result.status).toBe("done");
   });
 
   it("rejects transition when dependencies are not done", async () => {
@@ -220,17 +270,15 @@ describe("updateTicketStatus", () => {
         rows: [{ id: "EPIC-0-T1", status: "done" }],
       })
       .mockResolvedValueOnce({
-        rows: [{ id: "EPIC-0-T2", status: "done" }],
+        rows: [{ id: "EPIC-0-T2" }],
       });
 
     const caller = createCaller();
 
-    const result = await caller.backlog.updateTicketStatus({
+    await caller.backlog.updateTicketStatus({
       ticketId: "EPIC-0-T2",
       status: "done",
     });
-
-    expect(result.id).toBe("EPIC-0-T2");
   });
 });
 
@@ -457,5 +505,36 @@ describe("brd.getUploadStatus", () => {
     await expect(
       caller.brd.getUploadStatus("unknown-id"),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("listProjects returns uploaded projects", async () => {
+    const { brdRouter } = await import("../brd");
+    mockPoolQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "proj-1",
+          file_name: "spec.pdf",
+          status: "completed",
+          created_at: new Date("2026-01-01"),
+        },
+        {
+          id: "proj-2",
+          file_name: "requirements.docx",
+          status: "pending",
+          created_at: new Date("2026-01-02"),
+        },
+      ],
+    });
+
+    const caller = t
+      .router({ brd: brdRouter })
+      .createCaller({ req: {} as Context["req"], res: {} as Context["res"] });
+
+    const projects = await caller.brd.listProjects();
+
+    expect(projects).toHaveLength(2);
+    expect(projects[0]?.id).toBe("proj-1");
+    expect(projects[0]?.fileName).toBe("spec.pdf");
+    expect(projects[0]?.status).toBe("completed");
   });
 });

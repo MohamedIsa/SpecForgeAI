@@ -28,6 +28,7 @@ export interface Epic {
   id: string;
   title: string;
   description: string | null;
+  brd_upload_id: string | null;
   created_at: Date;
 }
 

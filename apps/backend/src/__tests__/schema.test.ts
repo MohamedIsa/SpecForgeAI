@@ -70,6 +70,7 @@ describe("epic entity shape", () => {
       id: "epic-0",
       title: "Foundation",
       description: null,
+      brd_upload_id: null,
       created_at: new Date(),
     };
 

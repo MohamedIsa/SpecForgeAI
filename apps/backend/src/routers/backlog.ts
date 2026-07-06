@@ -33,7 +33,7 @@ const ticketStatusEnum = z.enum([
   "done",
 ]);
 
-const createTicketSchema = z.object({
+const ticketValidationSchema = z.object({
   id: z.string().min(1),
   epicId: z.string().min(1),
   title: z.string().min(1),
@@ -46,6 +46,42 @@ const createTicketSchema = z.object({
   acceptanceCriteria: z.array(z.string()).default([]),
   aiDevPrompt: z.string().default(""),
 });
+
+const aiCreateTicketSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  epicId: z.string().min(1),
+  projectId: z.string().min(1),
+});
+
+function buildAiTicketPrompt(title: string, description: string): string {
+  return `Analyze the following ticket title and description and generate the remaining ticket fields.
+
+## Input
+Title: ${title}
+Description: ${description}
+
+## Output Format
+Return ONLY valid JSON (no markdown fences):
+
+{
+  "type": "setup" | "feature" | "infra" | "integration" | "testing" | "bugfix",
+  "priority": "P0" | "P1" | "P2" | "P3",
+  "storyPoints": 1 | 2 | 3 | 5 | 8,
+  "dependencies": [],
+  "acceptanceCriteria": [
+    "Given ... When ... Then ...",
+    "Given ... When ... Then ...",
+    "Given ... When ... Then ..."
+  ],
+  "aiDevPrompt": "Detailed standalone developer prompt with file paths, type safety, and test expectations"
+}
+
+## Guidelines
+- Choose the most appropriate type, priority, and story points based on the ticket description.
+- Generate 3-5 Given/When/Then acceptance criteria.
+- Write a detailed, standalone aiDevPrompt that a developer can implement in isolation.`;
+};
 
 function buildExtractPrompt(userPrompt: string): string {
   return `You are a technical project manager. Convert the following user request into a single structured ticket.
@@ -178,17 +214,29 @@ export const backlogRouter = router({
     .input(
       z.object({
         epicId: z.string().optional(),
+        projectId: z.string().optional(),
       }).default({}),
     )
     .query(async ({ input }) => {
       const pool = getPool();
 
-      let epicQuery = "SELECT id, title, description, created_at FROM epics";
+      let epicQuery =
+        "SELECT id, title, description, brd_upload_id, created_at FROM epics";
       const epicParams: string[] = [];
+      const conditions: string[] = [];
 
       if (input.epicId != null && input.epicId !== "") {
-        epicQuery += " WHERE id = $1";
         epicParams.push(input.epicId);
+        conditions.push(`id = $${epicParams.length}`);
+      }
+
+      if (input.projectId != null && input.projectId !== "") {
+        epicParams.push(input.projectId);
+        conditions.push(`brd_upload_id = $${epicParams.length}`);
+      }
+
+      if (conditions.length > 0) {
+        epicQuery += " WHERE " + conditions.join(" AND ");
       }
 
       epicQuery += " ORDER BY created_at ASC";
@@ -261,33 +309,88 @@ export const backlogRouter = router({
           message: `Ticket not found: ${input.ticketId}`,
         });
       }
-
-      const row = result.rows[0] as Record<string, unknown>;
-
-      return { id: row["id"], status: row["status"] };
     }),
 
   createTicket: publicProcedure
-    .input(createTicketSchema)
+    .input(aiCreateTicketSchema)
     .mutation(async ({ input }) => {
       const pool = getPool();
+      const aiClient = createDeepSeekClient();
+
+      const aiResponse = await aiClient.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: buildAiTicketPrompt(
+              input.title,
+              input.description,
+            ),
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 4096,
+      });
+
+      const rawContent = aiResponse.choices[0]?.message?.content;
+
+      if (rawContent == null || rawContent === "") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "AI returned empty response for ticket generation.",
+        });
+      }
+
+      let aiJson: unknown;
+
+      try {
+        aiJson = JSON.parse(rawContent.trim());
+      } catch {
+        const match = rawContent.trim().match(/\{[\s\S]*\}/);
+
+        if (match != null) {
+          aiJson = JSON.parse(match[0]);
+        } else {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to parse AI ticket JSON.",
+          });
+        }
+      }
+
+      const generated = aiJson as Record<string, unknown>;
+      const ticketId = `${input.projectId}-T${randomUUID().replace(/-/g, "").slice(0, 6)}`;
+
+      const fullTicket = ticketValidationSchema.parse({
+        id: ticketId,
+        epicId: input.epicId,
+        title: input.title,
+        type: generated["type"] ?? "feature",
+        priority: generated["priority"] ?? "P2",
+        storyPoints: generated["storyPoints"] ?? 3,
+        status: "backlog",
+        dependencies: generated["dependencies"] ?? [],
+        description: input.description,
+        acceptanceCriteria: generated["acceptanceCriteria"] ?? [],
+        aiDevPrompt: generated["aiDevPrompt"] ?? "",
+      });
 
       try {
         await pool.query(
           `INSERT INTO tickets (id, epic_id, title, type, priority, story_points, status, dependencies, description, acceptance_criteria, ai_dev_prompt)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [
-            input.id,
-            input.epicId,
-            input.title,
-            input.type,
-            input.priority,
-            input.storyPoints,
-            input.status,
-            JSON.stringify(input.dependencies),
-            input.description,
-            JSON.stringify(input.acceptanceCriteria),
-            input.aiDevPrompt,
+            fullTicket.id,
+            fullTicket.epicId,
+            fullTicket.title,
+            fullTicket.type,
+            fullTicket.priority,
+            fullTicket.storyPoints,
+            fullTicket.status,
+            JSON.stringify(fullTicket.dependencies),
+            fullTicket.description,
+            JSON.stringify(fullTicket.acceptanceCriteria),
+            fullTicket.aiDevPrompt,
           ],
         );
       } catch (err) {
@@ -304,7 +407,7 @@ export const backlogRouter = router({
         throw err;
       }
 
-      return { id: input.id, title: input.title };
+      return { id: fullTicket.id, title: fullTicket.title };
     }),
 
   extractTicketFromPrompt: publicProcedure
@@ -333,7 +436,7 @@ export const backlogRouter = router({
           input.epicId + "-T" + randomUUID().replace(/-/g, "").slice(0, 6);
       }
 
-      const parsed = createTicketSchema.safeParse({
+      const parsed = ticketValidationSchema.safeParse({
         ...rawTicket,
         epicId: input.epicId,
         status: "backlog",
