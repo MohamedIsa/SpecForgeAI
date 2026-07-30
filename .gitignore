@@ -1,0 +1,32 @@
+**/node_modules
+
+backlog.json
+
+.agent/
+.claude/
+.agents/
+
+.env
+.env.local
+.env.*.local 
+kilo.json
+
+# Ignore index.html at root only, not in app directories
+/index.html
+
+**/dist/
+
+# Coverage output
+coverage/
+*.lcov
+
+# Docker
+pgdata/
+docker-compose.override.
+.pnpm-store/
+
+# Terraform
+infra/staging/terraform.tfvars
+infra/staging/terraform.tfstate
+infra/staging/terraform.tfstate.*
+infra/staging/.terraform/
