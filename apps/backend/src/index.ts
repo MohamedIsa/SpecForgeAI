@@ -12,7 +12,7 @@ function createContext({ req, res }: CreateFastifyContextOptions): Context {
   return { req, res };
 }
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env.PORT) || 3000;
 
 const fastify = Fastify({
   maxParamLength: 5000,
@@ -20,7 +20,7 @@ const fastify = Fastify({
 });
 
 await fastify.register(cors, {
-  origin: ["http://localhost:5173", "http://localhost:3000"],
+  origin: ["http://localhost:5173"],
   credentials: true,
 });
 
