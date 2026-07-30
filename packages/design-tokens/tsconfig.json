@@ -1,0 +1,4 @@
+{
+  "extends": "@specforge/config-typescript/base.json",
+  "include": ["src"]
+}

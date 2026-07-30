@@ -1,0 +1,9 @@
+{
+  "name": "@specforge/config-typescript",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./base.json": "./tsconfig.base.json",
+    "./react.json": "./tsconfig.react.json"
+  }
+}

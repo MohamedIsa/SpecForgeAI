@@ -1,0 +1,9 @@
+{
+  "extends": "@specforge/config-typescript/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "noEmit": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src"]
+}
