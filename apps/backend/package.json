@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./router": "./src/router.ts"
+    "./router": "./src/router.ts",
+    "./validation": "./src/validation.ts"
   },
   "scripts": {
     "dev": "node --env-file-if-exists=.env node_modules/tsx/dist/cli.mjs watch src/index.ts",

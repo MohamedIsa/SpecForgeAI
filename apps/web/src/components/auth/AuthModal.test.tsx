@@ -114,6 +114,30 @@ describe("AuthModal", () => {
     expect(screen.getByLabelText("Email").className).toContain("border-error-border");
   });
 
+  it("blocks login submission and shows the Zod message for an invalid email, without calling the login mutation", () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "not-an-email" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter22222" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(loginMutate).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Enter a valid email address").length).toBeGreaterThan(0);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("blocks signup submission and shows the Zod message for a password under 8 characters, without calling the signup mutation", () => {
+    renderModal();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Create Account" }));
+    fireEvent.change(screen.getByLabelText("Full Name"), { target: { value: "Ada Lovelace" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ada@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "short" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(signupMutate).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Password must be at least 8 characters").length).toBeGreaterThan(0);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
   it("stores the session after a successful signup", () => {
     renderModal();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Create Account" }));

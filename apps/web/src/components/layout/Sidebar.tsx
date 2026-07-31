@@ -1,4 +1,5 @@
-import { ChevronsLeftRightIcon, ChevronDownIcon } from "lucide-react";
+import { ChevronsLeftRightIcon } from "lucide-react";
+import { ProjectPicker } from "@/components/projects/ProjectPicker";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "#", icon: "□", badge: undefined as number | undefined },
@@ -36,12 +37,7 @@ export function Sidebar({
         </button>
       </div>
 
-      <div className="px-md pb-md">
-        <button className="w-full flex items-center justify-between px-sm py-1.5 rounded-md text-sm text-text-disabled bg-sidebar-item border border-sidebar-border transition-colors hover:text-text-inverse hover:border-sidebar-item-border cursor-pointer">
-          <span>Select project...</span>
-          <ChevronDownIcon size={12} />
-        </button>
-      </div>
+      <ProjectPicker />
 
       <nav className="flex-1 px-sm">
         <ul className="flex flex-col gap-0.5">

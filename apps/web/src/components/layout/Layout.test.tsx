@@ -1,10 +1,46 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactNode } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Layout } from "./Layout.tsx";
+import { ProjectProvider } from "@/lib/project-context";
+
+vi.mock("@/trpc", () => ({
+  trpc: {
+    useUtils: () => ({
+      project: {
+        listUserProjects: {
+          cancel: vi.fn(),
+          getData: vi.fn(() => []),
+          setData: vi.fn(),
+          invalidate: vi.fn(),
+        },
+      },
+    }),
+    project: {
+      listUserProjects: {
+        useQuery: () => ({ data: [], isLoading: false }),
+      },
+      createProject: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
+      inviteMember: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
+    },
+  },
+}));
+
+function renderLayout(children: ReactNode) {
+  return render(<ProjectProvider>{children}</ProjectProvider>);
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
 
 describe("Layout", () => {
   it("renders children content", () => {
-    render(
+    renderLayout(
       <Layout>
         <div data-testid="content">Hello</div>
       </Layout>,
@@ -13,7 +49,7 @@ describe("Layout", () => {
   });
 
   it("renders sidebar with logo", () => {
-    render(
+    renderLayout(
       <Layout>
         <div />
       </Layout>,
@@ -22,7 +58,7 @@ describe("Layout", () => {
   });
 
   it("renders header with breadcrumb", () => {
-    render(
+    renderLayout(
       <Layout>
         <div />
       </Layout>,
@@ -32,7 +68,7 @@ describe("Layout", () => {
   });
 
   it("renders navigation items", () => {
-    render(
+    renderLayout(
       <Layout>
         <div />
       </Layout>,
@@ -43,7 +79,7 @@ describe("Layout", () => {
   });
 
   it("toggles sidebar on button click", () => {
-    render(
+    renderLayout(
       <Layout>
         <div />
       </Layout>,
@@ -54,12 +90,21 @@ describe("Layout", () => {
   });
 
   it("renders user profile section", () => {
-    render(
+    renderLayout(
       <Layout>
         <div />
       </Layout>,
     );
     expect(screen.getByText("Mohamed Isa")).toBeInTheDocument();
     expect(screen.getByText("Owner")).toBeInTheDocument();
+  });
+
+  it("renders the workspace switcher with the placeholder label when no project exists", () => {
+    renderLayout(
+      <Layout>
+        <div />
+      </Layout>,
+    );
+    expect(screen.getByText("Select project...")).toBeInTheDocument();
   });
 });

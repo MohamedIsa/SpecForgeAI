@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorToast } from "@/components/ui/toast";
 import { trpc } from "@/trpc";
 import { useAuth } from "@/lib/auth-context";
+import { signupInput, loginInput } from "@specforge/backend/validation";
 
 type AuthMode = "login" | "signup";
 
@@ -50,9 +51,19 @@ export function AuthModal() {
     setErrorMessage(null);
 
     if (mode === "signup") {
-      signupMutation.mutate({ fullName, email, password });
+      const result = signupInput.safeParse({ fullName, email, password });
+      if (!result.success) {
+        triggerError(result.error.issues[0]?.message ?? "Please check your details and try again.");
+        return;
+      }
+      signupMutation.mutate(result.data);
     } else {
-      loginMutation.mutate({ email, password });
+      const result = loginInput.safeParse({ email, password });
+      if (!result.success) {
+        triggerError(result.error.issues[0]?.message ?? "Please check your details and try again.");
+        return;
+      }
+      loginMutation.mutate(result.data);
     }
   }
 

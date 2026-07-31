@@ -24,7 +24,7 @@ interface AuthContextValue {
   clearSession: () => void;
 }
 
-const STORAGE_KEY = "specforge.auth.session";
+export const AUTH_STORAGE_KEY = "specforge.auth.session";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -42,8 +42,8 @@ function isAuthSession(value: unknown): value is AuthSession {
   );
 }
 
-function readStoredSession(): AuthSession | null {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+export function readStoredSession(): AuthSession | null {
+  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -57,12 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthSession | null>(() => readStoredSession());
 
   const setSession = useCallback((next: AuthSession) => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
     setSessionState(next);
   }, []);
 
   const clearSession = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
     setSessionState(null);
   }, []);
 

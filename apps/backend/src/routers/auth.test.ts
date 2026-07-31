@@ -7,7 +7,7 @@ import { pool } from "../db/pool";
 import type { AuthResult } from "./auth";
 
 function createCaller() {
-  const ctx: Context = { req: {} as object, res: {} as object };
+  const ctx: Context = { req: {} as object, res: {} as object, userId: null };
   return appRouter.createCaller(ctx);
 }
 

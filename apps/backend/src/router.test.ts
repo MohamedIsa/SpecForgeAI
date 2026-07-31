@@ -3,7 +3,7 @@ import { appRouter } from "./router";
 import type { Context } from "./router";
 
 function createCaller() {
-  const ctx: Context = { req: {} as object, res: {} as object };
+  const ctx: Context = { req: {} as object, res: {} as object, userId: null };
   return appRouter.createCaller(ctx);
 }
 

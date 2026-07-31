@@ -1,6 +1,7 @@
 import { router, publicProcedure } from "./trpc";
 import { pingDatabase } from "./db/pool";
 import { authRouter } from "./routers/auth";
+import { projectRouter } from "./routers/project";
 
 export type { Context } from "./trpc";
 
@@ -19,6 +20,7 @@ export const appRouter = router({
     }
   }),
   auth: authRouter,
+  project: projectRouter,
 });
 
 export type AppRouter = typeof appRouter;

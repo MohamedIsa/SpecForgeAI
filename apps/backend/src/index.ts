@@ -7,9 +7,11 @@ import {
 import { appRouter } from "./router";
 import type { AppRouter, Context } from "./router";
 import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
+import { verifyBearerToken } from "./lib/jwt";
 
 function createContext({ req, res }: CreateFastifyContextOptions): Context {
-  return { req, res };
+  const userId = verifyBearerToken(req.headers.authorization);
+  return { req, res, userId };
 }
 
 const PORT = Number(process.env.PORT) || 3000;
