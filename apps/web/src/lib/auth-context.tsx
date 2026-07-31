@@ -2,10 +2,20 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { rawTrpcClient } from "../trpc";
+import type { RouterOutputs } from "../trpc";
+import {
+  registerAccessTokenRefresher,
+  setAccessToken,
+  clearAccessToken,
+  getValidAccessToken,
+  type AccessTokenState,
+} from "./access-token-store";
 
 export interface AuthUser {
   id: string;
@@ -14,61 +24,84 @@ export interface AuthUser {
 }
 
 export interface AuthSession {
-  token: string;
   user: AuthUser;
 }
 
+type SignInResult = RouterOutputs["auth"]["login"];
+
 interface AuthContextValue {
   session: AuthSession | null;
-  setSession: (session: AuthSession) => void;
-  clearSession: () => void;
+  isHydrating: boolean;
+  setSession: (result: SignInResult) => void;
+  logout: () => Promise<void>;
 }
-
-export const AUTH_STORAGE_KEY = "specforge.auth.session";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function isAuthSession(value: unknown): value is AuthSession {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  if (typeof candidate.token !== "string") return false;
-  const user = candidate.user;
-  if (typeof user !== "object" || user === null) return false;
-  const userCandidate = user as Record<string, unknown>;
-  return (
-    typeof userCandidate.id === "string" &&
-    typeof userCandidate.fullName === "string" &&
-    typeof userCandidate.email === "string"
-  );
-}
-
-export function readStoredSession(): AuthSession | null {
-  const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) return null;
+async function silentRefresh(): Promise<SignInResult | null> {
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return isAuthSession(parsed) ? parsed : null;
+    return await rawTrpcClient.auth.refreshSession.mutate();
   } catch {
     return null;
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<AuthSession | null>(() => readStoredSession());
+  const [session, setSessionState] = useState<AuthSession | null>(null);
+  const [isHydrating, setIsHydrating] = useState(true);
 
-  const setSession = useCallback((next: AuthSession) => {
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-    setSessionState(next);
+  // Called by access-token-store whenever the in-memory access token is
+  // missing/expired and a request is about to be made — this is what makes
+  // token refresh "silent": no visible logout, just a fresh token underneath.
+  const refresh = useCallback(async (): Promise<AccessTokenState | null> => {
+    const result = await silentRefresh();
+    if (!result) {
+      clearAccessToken();
+      setSessionState(null);
+      return null;
+    }
+    setSessionState({ user: result.user });
+    return {
+      token: result.accessToken,
+      expiresAt: Date.now() + result.expiresInSeconds * 1000,
+    };
   }, []);
 
-  const clearSession = useCallback(() => {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    setSessionState(null);
+  useEffect(() => {
+    registerAccessTokenRefresher(refresh);
+    let cancelled = false;
+    // On mount there is no in-memory access token (it never persists across
+    // reloads by design), so this immediately triggers `refresh()` above,
+    // which attempts to hydrate the session from the httpOnly refresh cookie.
+    void getValidAccessToken().finally(() => {
+      if (!cancelled) setIsHydrating(false);
+    });
+    return () => {
+      cancelled = true;
+      registerAccessTokenRefresher(null);
+    };
+  }, [refresh]);
+
+  const setSession = useCallback((result: SignInResult) => {
+    setAccessToken(result.accessToken, result.expiresInSeconds);
+    setSessionState({ user: result.user });
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await rawTrpcClient.auth.logout.mutate();
+    } catch {
+      // Best-effort: even if the server call fails (network error, already
+      // expired session, etc.), the local session must still be cleared.
+    } finally {
+      clearAccessToken();
+      setSessionState(null);
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ session, setSession, clearSession }),
-    [session, setSession, clearSession],
+    () => ({ session, isHydrating, setSession, logout }),
+    [session, isHydrating, setSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,91 +1,139 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "./auth-context";
+import { clearAccessToken, registerAccessTokenRefresher } from "./access-token-store";
 
-const STORAGE_KEY = "specforge.auth.session";
+const refreshSessionMutate = vi.fn();
+const logoutMutate = vi.fn();
+
+vi.mock("../trpc", () => ({
+  rawTrpcClient: {
+    auth: {
+      refreshSession: { mutate: () => refreshSessionMutate() },
+      logout: { mutate: () => logoutMutate() },
+    },
+  },
+}));
 
 function TestConsumer() {
-  const { session, setSession, clearSession } = useAuth();
+  const { session, isHydrating, setSession, logout } = useAuth();
   return (
     <div>
+      <span data-testid="hydrating">{isHydrating ? "yes" : "no"}</span>
       <span data-testid="session-email">{session?.user.email ?? "none"}</span>
       <button
         onClick={() =>
           setSession({
-            token: "abc123",
+            accessToken: "abc123",
+            expiresInSeconds: 900,
             user: { id: "1", fullName: "Ada Lovelace", email: "ada@example.com" },
           })
         }
       >
         sign in
       </button>
-      <button onClick={clearSession}>sign out</button>
+      <button onClick={() => void logout()}>sign out</button>
     </div>
   );
 }
 
 beforeEach(() => {
   window.localStorage.clear();
+  refreshSessionMutate.mockReset();
+  logoutMutate.mockReset();
+  // access-token-store is a module-level singleton, not React state, so it
+  // must be reset explicitly between tests to avoid one test's token bleeding
+  // into the next test's hydration behavior.
+  clearAccessToken();
+  registerAccessTokenRefresher(null);
 });
 
 describe("AuthProvider", () => {
-  it("starts with no session when localStorage is empty", () => {
+  it("starts hydrating, then settles with no session when silent refresh fails", async () => {
+    refreshSessionMutate.mockRejectedValue(new Error("no refresh cookie"));
     render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>,
     );
+
+    expect(screen.getByTestId("hydrating")).toHaveTextContent("yes");
+    await waitFor(() => expect(screen.getByTestId("hydrating")).toHaveTextContent("no"));
     expect(screen.getByTestId("session-email")).toHaveTextContent("none");
+    expect(refreshSessionMutate).toHaveBeenCalledTimes(1);
   });
 
-  it("persists the session to localStorage on setSession", () => {
+  it("silently hydrates the session from a successful refresh on mount, without a visible logout", async () => {
+    refreshSessionMutate.mockResolvedValue({
+      accessToken: "hydrated-token",
+      expiresInSeconds: 900,
+      user: { id: "2", fullName: "Grace Hopper", email: "grace@example.com" },
+    });
     render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>,
     );
-    fireEvent.click(screen.getByText("sign in"));
-    expect(screen.getByTestId("session-email")).toHaveTextContent("ada@example.com");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toContain("ada@example.com");
-  });
 
-  it("removes the session from localStorage on clearSession", () => {
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
-    fireEvent.click(screen.getByText("sign in"));
-    fireEvent.click(screen.getByText("sign out"));
-    expect(screen.getByTestId("session-email")).toHaveTextContent("none");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
-  });
-
-  it("hydrates from a previously stored session on mount", () => {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        token: "stored-token",
-        user: { id: "2", fullName: "Grace Hopper", email: "grace@example.com" },
-      }),
-    );
-
-    render(
-      <AuthProvider>
-        <TestConsumer />
-      </AuthProvider>,
-    );
+    await waitFor(() => expect(screen.getByTestId("hydrating")).toHaveTextContent("no"));
     expect(screen.getByTestId("session-email")).toHaveTextContent("grace@example.com");
   });
 
-  it("ignores malformed stored session data", () => {
-    window.localStorage.setItem(STORAGE_KEY, "not-json");
+  it("sets the session in memory via setSession without persisting anything to localStorage", async () => {
+    refreshSessionMutate.mockRejectedValue(new Error("no refresh cookie"));
     render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>,
     );
+    await waitFor(() => expect(screen.getByTestId("hydrating")).toHaveTextContent("no"));
+
+    fireEvent.click(screen.getByText("sign in"));
+    expect(screen.getByTestId("session-email")).toHaveTextContent("ada@example.com");
+    expect(window.localStorage.getItem("specforge.auth.session")).toBeNull();
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it("clears the session and calls the server logout procedure when logging out", async () => {
+    refreshSessionMutate.mockRejectedValue(new Error("no refresh cookie"));
+    logoutMutate.mockResolvedValue({ success: true });
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("hydrating")).toHaveTextContent("no"));
+
+    fireEvent.click(screen.getByText("sign in"));
+    expect(screen.getByTestId("session-email")).toHaveTextContent("ada@example.com");
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("sign out"));
+      await Promise.resolve();
+    });
+
+    expect(logoutMutate).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("session-email")).toHaveTextContent("none");
+  });
+
+  it("clears the session even when the server logout call fails", async () => {
+    refreshSessionMutate.mockRejectedValue(new Error("no refresh cookie"));
+    logoutMutate.mockRejectedValue(new Error("network error"));
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("hydrating")).toHaveTextContent("no"));
+
+    fireEvent.click(screen.getByText("sign in"));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("sign out"));
+      await Promise.resolve();
+    });
+
     expect(screen.getByTestId("session-email")).toHaveTextContent("none");
   });
 });

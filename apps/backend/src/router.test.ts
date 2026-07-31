@@ -1,10 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { appRouter } from "./router";
-import type { Context } from "./router";
+import { createTestCaller } from "./test-utils";
 
 function createCaller() {
-  const ctx: Context = { req: {} as object, res: {} as object, userId: null };
-  return appRouter.createCaller(ctx);
+  return createTestCaller(null).caller;
 }
 
 describe("health endpoint", () => {

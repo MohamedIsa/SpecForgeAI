@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import cookie from "@fastify/cookie";
 import {
   fastifyTRPCPlugin,
   type FastifyTRPCPluginOptions,
@@ -25,6 +26,8 @@ await fastify.register(cors, {
   origin: ["http://localhost:5173"],
   credentials: true,
 });
+
+await fastify.register(cookie);
 
 await fastify.register(fastifyTRPCPlugin, {
   prefix: "/trpc",

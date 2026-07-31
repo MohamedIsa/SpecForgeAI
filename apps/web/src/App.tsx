@@ -5,7 +5,11 @@ import { useAuth } from "./lib/auth-context.tsx";
 
 export function App() {
   const healthQuery = trpc.health.useQuery();
-  const { session } = useAuth();
+  const { session, isHydrating } = useAuth();
+
+  if (isHydrating) {
+    return null;
+  }
 
   if (!session) {
     return <AuthModal />;

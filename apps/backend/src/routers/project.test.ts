@@ -1,12 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { appRouter } from "../router";
-import type { Context } from "../router";
+import { createTestCaller } from "../test-utils";
 import { pool } from "../db/pool";
 import type { CreateProjectResult } from "./project";
 
 function createCaller(userId: string | null) {
-  const ctx: Context = { req: {} as object, res: {} as object, userId };
-  return appRouter.createCaller(ctx);
+  return createTestCaller(userId).caller;
 }
 
 function uniqueEmail(): string {

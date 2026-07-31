@@ -11,6 +11,7 @@ export const signupInput = z.object({
 export const loginInput = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required").max(200),
+  rememberMe: z.boolean().optional().default(false),
 });
 
 export const createProjectInput = z.object({

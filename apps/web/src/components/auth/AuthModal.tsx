@@ -58,7 +58,7 @@ export function AuthModal() {
       }
       signupMutation.mutate(result.data);
     } else {
-      const result = loginInput.safeParse({ email, password });
+      const result = loginInput.safeParse({ email, password, rememberMe });
       if (!result.success) {
         triggerError(result.error.issues[0]?.message ?? "Please check your details and try again.");
         return;

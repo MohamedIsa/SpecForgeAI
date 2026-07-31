@@ -1,9 +1,10 @@
 import { initTRPC, TRPCError, type TRPCDefaultErrorShape } from "@trpc/server";
 import { ZodError } from "zod";
+import type { RequestLike, ReplyLike } from "./lib/http";
 
 export interface Context {
-  req: object;
-  res: object;
+  req: RequestLike;
+  res: ReplyLike;
   userId: string | null;
 }
 
