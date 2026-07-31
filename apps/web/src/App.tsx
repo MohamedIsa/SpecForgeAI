@@ -1,8 +1,15 @@
 import { Layout } from "./components/layout/Layout.tsx";
+import { AuthModal } from "./components/auth/AuthModal.tsx";
 import { trpc } from "./trpc.ts";
+import { useAuth } from "./lib/auth-context.tsx";
 
 export function App() {
   const healthQuery = trpc.health.useQuery();
+  const { session } = useAuth();
+
+  if (!session) {
+    return <AuthModal />;
+  }
 
   return (
     <Layout>

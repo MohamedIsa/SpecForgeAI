@@ -21,13 +21,16 @@
   "dependencies": {
     "@fastify/cors": "^10.0.0",
     "@trpc/server": "^11.0.0",
+    "bcryptjs": "^3.0.3",
     "fastify": "^5.0.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.22.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@specforge/config-typescript": "workspace:*",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
     "eslint": "^10.8.0",

@@ -21,6 +21,10 @@ export const color = {
   successLight: "#DCFCE7",
   warning: "#F59E0B",
   warningLight: "#FEF3C7",
+  modalBg: "#0d0d10",
+  modalBorder: "#1c1c21",
+  inputBg: "#131316",
+  errorBorder: "#7f1d1d",
 } as const;
 
 export const spacing = {
@@ -71,6 +75,7 @@ export const borderRadius = {
   sm: "4px",
   md: "8px",
   lg: "12px",
+  "2lg": "14px",
   xl: "16px",
   full: "9999px",
 } as const;

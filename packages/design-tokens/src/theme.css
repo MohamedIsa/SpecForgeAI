@@ -28,6 +28,11 @@
   --color-sidebar-item: #141418;
   --color-sidebar-item-border: #3b3b42;
 
+  --color-modal-bg: #0d0d10;
+  --color-modal-border: #1c1c21;
+  --color-input-bg: #131316;
+  --color-error-border: #7f1d1d;
+
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
   --font-mono: JetBrains Mono, Fira Code, monospace;
 
@@ -66,6 +71,7 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-2lg: 14px;
   --radius-xl: 16px;
   --radius-full: 9999px;
 
@@ -73,4 +79,26 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  --animate-sf-shake: sfShake 400ms ease-in-out;
+}
+
+@keyframes sfShake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
 }

@@ -1,19 +1,12 @@
-import { initTRPC } from "@trpc/server";
+import { router, publicProcedure } from "./trpc";
 import { pingDatabase } from "./db/pool";
+import { authRouter } from "./routers/auth";
 
-export interface Context {
-  req: object;
-  res: object;
-}
+export type { Context } from "./trpc";
 
 export type HealthResult =
   | { status: "ok"; database: "connected" }
   | { status: "error"; database: "unreachable"; message: string };
-
-const t = initTRPC.context<Context>().create();
-
-export const router = t.router;
-export const publicProcedure = t.procedure;
 
 export const appRouter = router({
   health: publicProcedure.query(async (): Promise<HealthResult> => {
@@ -25,6 +18,7 @@ export const appRouter = router({
       return { status: "error", database: "unreachable", message };
     }
   }),
+  auth: authRouter,
 });
 
 export type AppRouter = typeof appRouter;
