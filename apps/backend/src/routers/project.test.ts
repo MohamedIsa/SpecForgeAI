@@ -79,10 +79,13 @@ describe("projectRouter.createProject", () => {
     expect(result.project.key).toBe(key);
     expect(result.project.template).toBe("kanban");
     expect(result.statuses.map((status) => status.name)).toEqual([
-      "To Do",
+      "Backlog",
+      "In Clarification",
       "In Progress",
+      "Review",
       "Done",
     ]);
+    expect(result.statuses.every((status) => /^#[0-9A-Fa-f]{6}$/.test(status.color))).toBe(true);
 
     const membershipRow = await pool.query<{ role: string }>(
       "SELECT role FROM project_memberships WHERE project_id = $1 AND user_id = $2",
@@ -94,7 +97,7 @@ describe("projectRouter.createProject", () => {
       "SELECT name FROM project_statuses WHERE project_id = $1 ORDER BY position ASC",
       [result.project.id],
     );
-    expect(statusRows.rows).toHaveLength(3);
+    expect(statusRows.rows).toHaveLength(5);
   });
 
   it("creates default scrum statuses when the scrum template is selected", async () => {
@@ -108,9 +111,9 @@ describe("projectRouter.createProject", () => {
 
     expect(result.statuses.map((status) => status.name)).toEqual([
       "Backlog",
-      "To Do",
+      "Sprint Backlog",
       "In Progress",
-      "In Review",
+      "QA / Review",
       "Done",
     ]);
   });

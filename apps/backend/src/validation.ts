@@ -33,3 +33,27 @@ export const inviteMemberInput = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   role: z.enum(["owner", "editor", "viewer"]),
 });
+
+const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
+export const getProjectStatusesInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const createStatusInput = z.object({
+  projectId: z.string().uuid(),
+  name: z.string().trim().min(1, "Status name is required").max(100),
+  color: z.string().regex(HEX_COLOR_PATTERN, "Color must be a 6-digit hex code").optional(),
+});
+
+export const reorderStatusesInput = z.object({
+  projectId: z.string().uuid(),
+  orderedStatusIds: z
+    .array(z.string().uuid())
+    .min(1, "At least one status is required"),
+});
+
+export const deleteStatusInput = z.object({
+  projectId: z.string().uuid(),
+  statusId: z.string().uuid(),
+});

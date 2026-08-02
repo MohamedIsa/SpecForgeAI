@@ -25,6 +25,11 @@ export const color = {
   modalBorder: "#1c1c21",
   inputBg: "#131316",
   errorBorder: "#7f1d1d",
+  columnBorder: "#18181c",
+  priorityP0Bg: "#7f1d1d33",
+  priorityP1Bg: "#78350f33",
+  priorityP2Bg: "#1e3a5f33",
+  priorityP3Bg: "#3b3b4233",
 } as const;
 
 export const spacing = {

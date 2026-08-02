@@ -2,18 +2,24 @@ import { ChevronsLeftRightIcon } from "lucide-react";
 import { ProjectPicker } from "@/components/projects/ProjectPicker";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "#", icon: "□", badge: undefined as number | undefined },
-  { label: "Ingest", href: "#", icon: "↓", badge: undefined as number | undefined },
-  { label: "Clarify", href: "#", icon: "?", badge: 3 },
-  { label: "Board", href: "#", icon: "▥", badge: undefined as number | undefined },
+  { label: "Dashboard", view: "dashboard", icon: "□", badge: undefined as number | undefined },
+  { label: "Ingest", view: "ingest", icon: "↓", badge: undefined as number | undefined },
+  { label: "Clarify", view: "clarify", icon: "?", badge: 3 },
+  { label: "Board", view: "board", icon: "▥", badge: undefined as number | undefined },
 ] as const;
+
+export type SidebarView = (typeof NAV_ITEMS)[number]["view"];
 
 export function Sidebar({
   collapsed,
   onToggle,
+  activeView = "dashboard",
+  onNavigate = () => {},
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  activeView?: SidebarView;
+  onNavigate?: (view: SidebarView) => void;
 }) {
   return (
     <aside
@@ -43,9 +49,13 @@ export function Sidebar({
         <ul className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => (
             <li key={item.label}>
-              <a
-                href={item.href}
-                className="flex items-center gap-sm px-sm py-1.5 rounded-md text-sm text-text-disabled transition-colors hover:bg-text-inverse/[0.04] hover:text-text-inverse whitespace-nowrap"
+              <button
+                type="button"
+                onClick={() => onNavigate(item.view)}
+                aria-current={activeView === item.view ? "page" : undefined}
+                className={`w-full flex items-center gap-sm px-sm py-1.5 rounded-md text-sm transition-colors hover:bg-text-inverse/[0.04] hover:text-text-inverse whitespace-nowrap cursor-pointer ${
+                  activeView === item.view ? "text-text-inverse bg-text-inverse/[0.04]" : "text-text-disabled"
+                }`}
               >
                 <span className="size-4 flex items-center justify-center text-xs">
                   {item.icon}
@@ -56,7 +66,7 @@ export function Sidebar({
                     {item.badge}
                   </span>
                 )}
-              </a>
+              </button>
             </li>
           ))}
         </ul>

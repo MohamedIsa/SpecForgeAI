@@ -21,6 +21,7 @@ interface ProjectRow {
 interface StatusRow {
   id: string;
   name: string;
+  color: string;
   position: number;
 }
 
@@ -49,6 +50,7 @@ export interface ProjectSummary extends Project {
 export interface ProjectStatus {
   id: string;
   name: string;
+  color: string;
   position: number;
 }
 
@@ -83,7 +85,7 @@ function isProjectTemplate(value: string): value is ProjectTemplate {
   return value === "kanban" || value === "scrum";
 }
 
-function isMembershipRole(value: string): value is MembershipRole {
+export function isMembershipRole(value: string): value is MembershipRole {
   return value === "owner" || value === "editor" || value === "viewer";
 }
 
@@ -109,9 +111,26 @@ function toMembership(row: MembershipRow): Membership {
   return { id: row.id, projectId: row.project_id, userId: row.user_id, role: row.role };
 }
 
-const DEFAULT_STATUSES: Record<ProjectTemplate, string[]> = {
-  kanban: ["To Do", "In Progress", "Done"],
-  scrum: ["Backlog", "To Do", "In Progress", "In Review", "Done"],
+interface DefaultStatusDefinition {
+  name: string;
+  color: string;
+}
+
+const DEFAULT_STATUSES: Record<ProjectTemplate, DefaultStatusDefinition[]> = {
+  kanban: [
+    { name: "Backlog", color: "#71717a" },
+    { name: "In Clarification", color: "#a78bfa" },
+    { name: "In Progress", color: "#fbbf24" },
+    { name: "Review", color: "#38bdf8" },
+    { name: "Done", color: "#4ade80" },
+  ],
+  scrum: [
+    { name: "Backlog", color: "#71717a" },
+    { name: "Sprint Backlog", color: "#a78bfa" },
+    { name: "In Progress", color: "#fbbf24" },
+    { name: "QA / Review", color: "#38bdf8" },
+    { name: "Done", color: "#4ade80" },
+  ],
 };
 
 async function insertDefaultStatuses(
@@ -119,17 +138,17 @@ async function insertDefaultStatuses(
   projectId: string,
   template: ProjectTemplate,
 ): Promise<ProjectStatus[]> {
-  const statusNames = DEFAULT_STATUSES[template];
+  const definitions = DEFAULT_STATUSES[template];
   const statuses: ProjectStatus[] = [];
 
-  for (let position = 0; position < statusNames.length; position++) {
-    const name = statusNames[position];
-    if (!name) continue;
+  for (let position = 0; position < definitions.length; position++) {
+    const definition = definitions[position];
+    if (!definition) continue;
     const inserted = await client.query<StatusRow>(
-      `INSERT INTO project_statuses (project_id, name, position)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, position`,
-      [projectId, name, position],
+      `INSERT INTO project_statuses (project_id, name, color, position)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, color, position`,
+      [projectId, definition.name, definition.color, position],
     );
     const row = inserted.rows[0];
     if (!row) {
