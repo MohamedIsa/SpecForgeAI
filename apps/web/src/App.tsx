@@ -5,6 +5,7 @@ import type { SidebarView } from "./components/layout/Sidebar.tsx";
 import { trpc } from "./trpc.ts";
 import { useAuth } from "./lib/auth-context.tsx";
 import { BoardPage } from "./pages/board/BoardPage.tsx";
+import { IngestPage } from "./pages/ingest/IngestPage.tsx";
 
 export function App() {
   const healthQuery = trpc.health.useQuery();
@@ -23,6 +24,8 @@ export function App() {
     <Layout activeView={view} onNavigate={setView}>
       {view === "board" ? (
         <BoardPage />
+      ) : view === "ingest" ? (
+        <IngestPage />
       ) : (
         <div className="flex flex-col items-center justify-center h-full gap-md">
           <h1 className="text-2xl font-semibold text-text">SpecForge AI</h1>

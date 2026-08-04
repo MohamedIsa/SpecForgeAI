@@ -103,3 +103,21 @@ export const getTicketDetailsInput = z.object({
 export const getProjectTicketsInput = z.object({
   projectId: z.string().uuid(),
 });
+
+const techPreferenceField = z.string().trim().max(200).nullable().optional();
+
+export const getBrdFilesInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const getTechPreferencesInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const saveTechPreferencesInput = z.object({
+  projectId: z.string().uuid(),
+  frontend: techPreferenceField,
+  backend: techPreferenceField,
+  database: techPreferenceField,
+  infra: techPreferenceField,
+});

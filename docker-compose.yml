@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: specforge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: specforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d specforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clamav:
+    image: clamav/clamav:latest
+    container_name: specforge-clamav
+    restart: unless-stopped
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    healthcheck:
+      # clamdcheck.sh exits non-zero until clamd has finished loading its
+      # signature database, which takes a few minutes on first start.
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
+volumes:
+  clamav-db:

@@ -23,6 +23,9 @@ coverage/
 # Docker
 pgdata/
 docker-compose.override.
+
+# Uploaded BRD files (stored on disk, metadata lives in Postgres)
+uploads/
 .pnpm-store/
 
 # Terraform

@@ -4,6 +4,7 @@ import { authRouter } from "./routers/auth";
 import { projectRouter } from "./routers/project";
 import { statusRouter } from "./routers/status";
 import { ticketRouter } from "./routers/ticket";
+import { brdRouter } from "./routers/brd";
 
 export type { Context } from "./trpc";
 
@@ -25,6 +26,7 @@ export const appRouter = router({
   project: projectRouter,
   status: statusRouter,
   ticket: ticketRouter,
+  brd: brdRouter,
 });
 
 export type AppRouter = typeof appRouter;
