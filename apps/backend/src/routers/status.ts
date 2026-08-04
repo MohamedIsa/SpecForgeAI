@@ -36,6 +36,7 @@ export interface DeleteStatusResult {
 }
 
 const POSTGRES_UNIQUE_VIOLATION = "23505";
+const POSTGRES_FOREIGN_KEY_VIOLATION = "23503";
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -43,6 +44,15 @@ function isUniqueViolation(error: unknown): boolean {
     error !== null &&
     "code" in error &&
     (error as { code: unknown }).code === POSTGRES_UNIQUE_VIOLATION
+  );
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === POSTGRES_FOREIGN_KEY_VIOLATION
   );
 }
 
@@ -209,10 +219,21 @@ export const statusRouter = router({
       const role = await requireMembership(input.projectId, ctx.userId);
       requireEditorOrOwner(role);
 
-      const deleted = await pool.query(
-        "DELETE FROM project_statuses WHERE id = $1 AND project_id = $2",
-        [input.statusId, input.projectId],
-      );
+      let deleted;
+      try {
+        deleted = await pool.query(
+          "DELETE FROM project_statuses WHERE id = $1 AND project_id = $2",
+          [input.statusId, input.projectId],
+        );
+      } catch (err) {
+        if (isForeignKeyViolation(err)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Cannot delete a status that still has tickets. Move or delete its tickets first.",
+          });
+        }
+        throw err;
+      }
       if (deleted.rowCount === 0) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Status not found in this project" });
       }

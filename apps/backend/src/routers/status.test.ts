@@ -340,6 +340,28 @@ describe("statusRouter.deleteStatus", () => {
     expect(remaining).toHaveLength(4);
   });
 
+  it("rejects deleting a status that still has tickets with CONFLICT", async () => {
+    const owner = await createUser("Status Has Tickets Owner");
+    const { projectId, statuses } = await createProjectWithOwner(owner.id);
+    const targetId = statuses[0]?.id;
+    if (!targetId) throw new Error("expected at least one status");
+
+    await createCaller(owner.id).ticket.createTicket({
+      projectId,
+      statusId: targetId,
+      title: "Blocks status deletion",
+      type: "task",
+      priority: "P2",
+    });
+
+    await expect(
+      createCaller(owner.id).status.deleteStatus({ projectId, statusId: targetId }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+
+    const remaining = await createCaller(owner.id).status.getProjectStatuses({ projectId });
+    expect(remaining.find((status) => status.id === targetId)).toBeDefined();
+  });
+
   it("rejects deleting a status that does not belong to the project with NOT_FOUND", async () => {
     const owner = await createUser("Foreign Delete Owner");
     const { projectId } = await createProjectWithOwner(owner.id);

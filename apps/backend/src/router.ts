@@ -3,6 +3,7 @@ import { pingDatabase } from "./db/pool";
 import { authRouter } from "./routers/auth";
 import { projectRouter } from "./routers/project";
 import { statusRouter } from "./routers/status";
+import { ticketRouter } from "./routers/ticket";
 
 export type { Context } from "./trpc";
 
@@ -23,6 +24,7 @@ export const appRouter = router({
   auth: authRouter,
   project: projectRouter,
   status: statusRouter,
+  ticket: ticketRouter,
 });
 
 export type AppRouter = typeof appRouter;

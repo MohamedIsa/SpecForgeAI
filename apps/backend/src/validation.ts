@@ -57,3 +57,49 @@ export const deleteStatusInput = z.object({
   projectId: z.string().uuid(),
   statusId: z.string().uuid(),
 });
+
+const acceptanceCriterionSchema = z.object({
+  given: z.string().trim().min(1, "Given is required").max(500),
+  when: z.string().trim().min(1, "When is required").max(500),
+  then: z.string().trim().min(1, "Then is required").max(500),
+  checked: z.boolean(),
+});
+
+export const createTicketInput = z.object({
+  projectId: z.string().uuid(),
+  statusId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(300),
+  description: z.string().trim().max(5000).optional(),
+  type: z.enum(["story", "bug", "task"]),
+  priority: z.enum(["P0", "P1", "P2", "P3"]),
+  storyPoints: z.number().int().min(0).max(100).optional(),
+  assigneeId: z.string().uuid().optional(),
+  acceptanceCriteria: z.array(acceptanceCriterionSchema).optional().default([]),
+  aiDevPrompt: z.string().trim().max(10000).optional(),
+  dependencies: z.array(z.string().uuid()).optional().default([]),
+});
+
+export const updateTicketStatusInput = z.object({
+  projectId: z.string().uuid(),
+  ticketId: z.string().uuid(),
+  statusId: z.string().uuid(),
+});
+
+export const updateTicketInput = z.object({
+  projectId: z.string().uuid(),
+  ticketId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(300).optional(),
+  description: z.string().trim().max(5000).nullable().optional(),
+  priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
+  storyPoints: z.number().int().min(0).max(100).nullable().optional(),
+  assigneeId: z.string().uuid().nullable().optional(),
+});
+
+export const getTicketDetailsInput = z.object({
+  projectId: z.string().uuid(),
+  ticketId: z.string().uuid(),
+});
+
+export const getProjectTicketsInput = z.object({
+  projectId: z.string().uuid(),
+});
