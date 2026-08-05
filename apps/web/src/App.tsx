@@ -6,6 +6,7 @@ import { trpc } from "./trpc.ts";
 import { useAuth } from "./lib/auth-context.tsx";
 import { BoardPage } from "./pages/board/BoardPage.tsx";
 import { IngestPage } from "./pages/ingest/IngestPage.tsx";
+import { ClarifyPage } from "./pages/clarify/ClarifyPage.tsx";
 
 export function App() {
   const healthQuery = trpc.health.useQuery();
@@ -25,7 +26,11 @@ export function App() {
       {view === "board" ? (
         <BoardPage />
       ) : view === "ingest" ? (
-        <IngestPage />
+        <IngestPage onNavigateToClarify={() => setView("clarify")} />
+      ) : view === "clarify" ? (
+        // AC5's "redirect to the backlog generator": the board is the backlog,
+        // and navigation here is view state (this app has no URL router).
+        <ClarifyPage onBacklogReady={() => setView("board")} />
       ) : (
         <div className="flex flex-col items-center justify-center h-full gap-md">
           <h1 className="text-2xl font-semibold text-text">SpecForge AI</h1>

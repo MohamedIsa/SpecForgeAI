@@ -121,3 +121,21 @@ export const saveTechPreferencesInput = z.object({
   database: techPreferenceField,
   infra: techPreferenceField,
 });
+
+export const startClarificationInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const getClarificationStateInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const sendClarificationMessageInput = z.object({
+  projectId: z.string().uuid(),
+  questionId: z.string().uuid(),
+  answer: z.string().trim().min(1, "An answer is required").max(2000),
+});
+
+export const completeClarificationInput = z.object({
+  projectId: z.string().uuid(),
+});

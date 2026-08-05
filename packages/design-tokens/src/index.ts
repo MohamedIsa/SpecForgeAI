@@ -30,6 +30,11 @@ export const color = {
   priorityP1Bg: "#78350f33",
   priorityP2Bg: "#1e3a5f33",
   priorityP3Bg: "#3b3b4233",
+  calloutBg: "#3d2e0f",
+  calloutBorder: "#fbbf24",
+  chipBg: "#151520",
+  chipText: "#c7d2fe",
+  resolved: "#4ade80",
 } as const;
 
 export const spacing = {

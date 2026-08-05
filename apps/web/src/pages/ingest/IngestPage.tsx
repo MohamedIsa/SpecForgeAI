@@ -33,7 +33,11 @@ function outcomeToItem(outcome: UploadOutcome): Pick<UploadItem, "state" | "mess
   }
 }
 
-export function IngestPage() {
+export interface IngestPageProps {
+  onNavigateToClarify: () => void;
+}
+
+export function IngestPage({ onNavigateToClarify }: IngestPageProps) {
   const { currentProjectId } = useProjectWorkspace();
   const utils = trpc.useUtils();
 
@@ -157,10 +161,7 @@ export function IngestPage() {
             {cleanCount} clean {cleanCount === 1 ? "file" : "files"} ready
           </span>
         </div>
-        <Button
-          disabled={!canProceed}
-          onClick={() => setSuccessMessage("AI Clarification is not available yet.")}
-        >
+        <Button disabled={!canProceed} onClick={onNavigateToClarify}>
           Proceed to AI Clarification
           <ArrowRightIcon size={14} />
         </Button>

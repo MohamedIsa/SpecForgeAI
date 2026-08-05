@@ -47,15 +47,19 @@ function makeFile(name: string, size = 1024): File {
   return file;
 }
 
-function renderPage(projectId: string | null = PROJECT_ID) {
+function renderPage(
+  projectId: string | null = PROJECT_ID,
+  onNavigateToClarify = vi.fn(),
+) {
   if (projectId) {
     window.localStorage.setItem("specforge.workspace.currentProjectId", projectId);
   }
-  return render(
+  render(
     <ProjectProvider>
-      <IngestPage />
+      <IngestPage onNavigateToClarify={onNavigateToClarify} />
     </ProjectProvider>,
   );
+  return { onNavigateToClarify };
 }
 
 function selectFiles(files: File[]): void {
@@ -236,6 +240,20 @@ describe("IngestPage — Proceed to AI Clarification", () => {
 
     await waitFor(() => expect(uploadBrdFileMock).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: /Proceed to AI Clarification/ })).toBeDisabled();
+  });
+
+  it("navigates to the clarify view when the CTA is pressed", async () => {
+    uploadBrdFileMock.mockResolvedValue({ status: "clean", id: "file-1" });
+
+    const { onNavigateToClarify } = renderPage();
+    selectFiles([makeFile("spec.md")]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Proceed to AI Clarification/ })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Proceed to AI Clarification/ }));
+
+    expect(onNavigateToClarify).toHaveBeenCalledTimes(1);
   });
 });
 
