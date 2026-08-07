@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", view: "dashboard", icon: "□", badge: undefined as number | undefined },
   { label: "Ingest", view: "ingest", icon: "↓", badge: undefined as number | undefined },
   { label: "Clarify", view: "clarify", icon: "?", badge: 3 },
+  { label: "Backlog", view: "backlog", icon: "☰", badge: undefined as number | undefined },
   { label: "Board", view: "board", icon: "▥", badge: undefined as number | undefined },
 ] as const;
 

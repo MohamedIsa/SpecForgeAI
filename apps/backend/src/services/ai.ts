@@ -73,7 +73,7 @@ const completionEnvelopeSchema = z.object({
     .min(1),
 });
 
-function resolveApiKey(): string {
+export function resolveApiKey(): string {
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key) {
     throw new AiConfigurationError("DEEPSEEK_API_KEY environment variable is not set");
@@ -87,6 +87,81 @@ function resolveBaseUrl(): string {
 
 function resolveModel(): string {
   return process.env.DEEPSEEK_MODEL ?? DEFAULT_MODEL;
+}
+
+export interface DeepSeekJsonRequestOptions {
+  systemPrompt: string;
+  userPrompt: string;
+  timeoutMs?: number;
+  /** Injectable purely so tests can drive the transport without real network calls. */
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * Shared DeepSeek chat/completions plumbing: posts in JSON-object mode, then
+ * unwraps and JSON-parses the model's message content. Every caller (the
+ * clarification engine, the backlog generator) gets identical, once-tested
+ * handling of timeouts, non-2xx responses and malformed envelopes; only the
+ * prompts and the shape of the parsed content differ.
+ */
+export async function requestDeepSeekJson(options: DeepSeekJsonRequestOptions): Promise<unknown> {
+  const apiKey = resolveApiKey();
+  const doFetch = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  let response: Response;
+  try {
+    response = await doFetch(`${resolveBaseUrl()}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: resolveModel(),
+        messages: [
+          { role: "system", content: options.systemPrompt },
+          { role: "user", content: options.userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (error) {
+    // Covers DNS failure, connection refused, and the abort signal firing.
+    throw new AiUnavailableError("Could not reach the DeepSeek API", { cause: error });
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new AiConfigurationError("The DeepSeek API rejected the configured API key");
+    }
+    throw new AiUnavailableError(`DeepSeek API returned HTTP ${response.status}`);
+  }
+
+  let envelope: unknown;
+  try {
+    envelope = await response.json();
+  } catch {
+    throw new AiResponseError("DeepSeek returned a response that was not valid JSON");
+  }
+
+  const envelopeResult = completionEnvelopeSchema.safeParse(envelope);
+  if (!envelopeResult.success) {
+    throw new AiResponseError("DeepSeek returned an unexpected completion envelope");
+  }
+
+  const rawContent = envelopeResult.data.choices[0]?.message.content;
+  if (!rawContent) {
+    throw new AiResponseError("DeepSeek returned an empty completion");
+  }
+
+  try {
+    return JSON.parse(rawContent);
+  } catch {
+    throw new AiResponseError("DeepSeek returned content that was not valid JSON");
+  }
 }
 
 export function truncateBrdText(text: string): string {
@@ -138,10 +213,6 @@ export async function requestClarificationQuestions(
     throw new AiResponseError("Cannot analyse an empty BRD document");
   }
 
-  const apiKey = resolveApiKey();
-  const doFetch = options.fetchImpl ?? fetch;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-
   const userPrompt = [
     "Business Requirements Document:",
     "---",
@@ -151,60 +222,12 @@ export async function requestClarificationQuestions(
     describeTechPreferences(options.techPreferences),
   ].join("\n");
 
-  let response: Response;
-  try {
-    response = await doFetch(`${resolveBaseUrl()}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: resolveModel(),
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.2,
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (error) {
-    // Covers DNS failure, connection refused, and the abort signal firing.
-    throw new AiUnavailableError("Could not reach the DeepSeek API", { cause: error });
-  }
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new AiConfigurationError("The DeepSeek API rejected the configured API key");
-    }
-    throw new AiUnavailableError(`DeepSeek API returned HTTP ${response.status}`);
-  }
-
-  let envelope: unknown;
-  try {
-    envelope = await response.json();
-  } catch {
-    throw new AiResponseError("DeepSeek returned a response that was not valid JSON");
-  }
-
-  const envelopeResult = completionEnvelopeSchema.safeParse(envelope);
-  if (!envelopeResult.success) {
-    throw new AiResponseError("DeepSeek returned an unexpected completion envelope");
-  }
-
-  const rawContent = envelopeResult.data.choices[0]?.message.content;
-  if (!rawContent) {
-    throw new AiResponseError("DeepSeek returned an empty completion");
-  }
-
-  let parsedContent: unknown;
-  try {
-    parsedContent = JSON.parse(rawContent);
-  } catch {
-    throw new AiResponseError("DeepSeek returned content that was not valid JSON");
-  }
+  const parsedContent = await requestDeepSeekJson({
+    systemPrompt: SYSTEM_PROMPT,
+    userPrompt,
+    timeoutMs: options.timeoutMs,
+    fetchImpl: options.fetchImpl,
+  });
 
   const payload = aiPayloadSchema.safeParse(parsedContent);
   if (!payload.success) {

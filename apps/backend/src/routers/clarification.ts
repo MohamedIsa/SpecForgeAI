@@ -9,13 +9,11 @@ import {
   completeClarificationInput,
 } from "../validation";
 import { getMembershipRole, canEditProject } from "../lib/project-access";
+import { toTrpcAiError } from "../lib/ai-error-mapping";
 import { isBrdExtension, type BrdExtension } from "../lib/brd-constants";
 import { extractBrdText, BrdTextExtractionError } from "../services/brd-text";
 import {
   requestClarificationQuestions,
-  AiUnavailableError,
-  AiResponseError,
-  AiConfigurationError,
   type ClarificationQuestionDraft,
   type TechPreferenceContext,
 } from "../services/ai";
@@ -300,7 +298,7 @@ async function loadProjectBrdDocuments(projectId: string): Promise<BrdDocumentVi
  * confidently wrong questions, so extraction failures and all-blank input
  * are surfaced rather than silently skipped.
  */
-async function loadProjectBrdText(projectId: string): Promise<{
+export async function loadProjectBrdText(projectId: string): Promise<{
   combinedText: string;
   documents: BrdDocumentView[];
 }> {
@@ -368,7 +366,21 @@ async function loadProjectBrdText(projectId: string): Promise<{
   return { combinedText, documents };
 }
 
-async function loadTechPreferences(projectId: string): Promise<TechPreferenceContext> {
+/** The most recent completed session's compiled context, or null if clarification has never finished. */
+export async function getLatestCompletedClarificationContext(
+  projectId: string,
+): Promise<string | null> {
+  const result = await pool.query<{ compiled_context: string | null }>(
+    `SELECT compiled_context FROM clarification_sessions
+     WHERE project_id = $1 AND status = 'completed'
+     ORDER BY completed_at DESC
+     LIMIT 1`,
+    [projectId],
+  );
+  return result.rows[0]?.compiled_context ?? null;
+}
+
+export async function loadTechPreferences(projectId: string): Promise<TechPreferenceContext> {
   const result = await pool.query<TechPreferenceContext>(
     `SELECT frontend, backend, database, infra
      FROM project_tech_preferences
@@ -378,31 +390,6 @@ async function loadTechPreferences(projectId: string): Promise<TechPreferenceCon
   return (
     result.rows[0] ?? { frontend: null, backend: null, database: null, infra: null }
   );
-}
-
-/** Maps AI-layer failures onto tRPC errors without leaking provider internals. */
-function toTrpcAiError(error: unknown): TRPCError {
-  if (error instanceof AiConfigurationError) {
-    return new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "The AI service is not configured. Contact an administrator.",
-    });
-  }
-  if (error instanceof AiUnavailableError) {
-    return new TRPCError({
-      code: "SERVICE_UNAVAILABLE",
-      message: "The AI service is unavailable right now. Please try again.",
-    });
-  }
-  if (error instanceof AiResponseError) {
-    return new TRPCError({
-      code: "BAD_GATEWAY",
-      message: "The AI service returned an unusable response. Please try again.",
-    });
-  }
-  return error instanceof TRPCError
-    ? error
-    : new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Clarification failed" });
 }
 
 async function insertSessionWithQuestions(
@@ -544,7 +531,7 @@ export const clarificationRouter = router({
           techPreferences: preferences,
         });
       } catch (error) {
-        throw toTrpcAiError(error);
+        throw toTrpcAiError(error, "Clarification failed");
       }
 
       try {

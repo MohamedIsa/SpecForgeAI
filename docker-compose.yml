@@ -10,12 +10,17 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      # :Z tells podman to relabel this bind mount for exclusive container
+      # access under SELinux; podman does this by recursively relabeling
+      # every file under ./pgdata on the host, not just the mount itself.
+      - ./pgdata:/var/lib/postgresql/data:Z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d specforge"]
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 512m
+    memswap_limit: 512m
 
   clamav:
     image: clamav/clamav:latest
@@ -33,6 +38,11 @@ services:
       timeout: 10s
       retries: 10
       start_period: 300s
+    # clamd's live RSS sits close to 1g under normal signature-DB load, which
+    # left almost no headroom before the OOM killer; 2g keeps a reload from
+    # taking down the scan that EPIC-3-T1's upload flow fails closed without.
+    mem_limit: 2g
+    memswap_limit: 2g
 
 volumes:
   clamav-db:

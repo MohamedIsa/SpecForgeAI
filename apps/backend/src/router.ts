@@ -6,6 +6,7 @@ import { statusRouter } from "./routers/status";
 import { ticketRouter } from "./routers/ticket";
 import { brdRouter } from "./routers/brd";
 import { clarificationRouter } from "./routers/clarification";
+import { backlogRouter } from "./routers/backlog";
 
 export type { Context } from "./trpc";
 
@@ -29,6 +30,7 @@ export const appRouter = router({
   ticket: ticketRouter,
   brd: brdRouter,
   clarification: clarificationRouter,
+  backlog: backlogRouter,
 });
 
 export type AppRouter = typeof appRouter;

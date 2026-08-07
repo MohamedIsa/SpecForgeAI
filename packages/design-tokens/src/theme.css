@@ -94,6 +94,9 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 
   --animate-sf-shake: sfShake 400ms ease-in-out;
+  --animate-sf-glow: sfGlow 1.6s ease-in-out infinite;
+  --animate-sf-spin: sfSpin 900ms linear infinite;
+  --animate-sf-bar-sweep: sfBarSweep 1.4s ease-in-out infinite;
 }
 
 @keyframes sfShake {
@@ -113,5 +116,33 @@
   40%,
   60% {
     transform: translateX(4px);
+  }
+}
+
+@keyframes sfGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-primary) 0%, transparent);
+  }
+}
+
+@keyframes sfSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sfBarSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
   }
 }

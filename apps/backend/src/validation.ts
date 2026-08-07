@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { backlogDraftSchema } from "./services/backlog-generator";
 
 const PROJECT_KEY_PATTERN = /^[A-Z][A-Z0-9]{1,9}$/;
 
@@ -137,5 +138,13 @@ export const sendClarificationMessageInput = z.object({
 });
 
 export const completeClarificationInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const generateBacklogInput = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const publishBacklogInput = backlogDraftSchema.extend({
   projectId: z.string().uuid(),
 });
