@@ -151,7 +151,7 @@ describe("App — publish-to-board navigation", () => {
     // Reach the Backlog view via the sidebar (a direct visit, not the Clarify
     // redirect), generate, then publish — this exercises the real App.tsx
     // wiring end to end, not a stubbed onPublished.
-    fireEvent.click(screen.getByRole("button", { name: /Backlog$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /3\. Backlog Review/ }));
     fireEvent.click(screen.getByRole("button", { name: /Publish to Kanban Board/ }));
 
     act(() => {

@@ -54,7 +54,7 @@ describe("Layout", () => {
         <div />
       </Layout>,
     );
-    expect(screen.getByText("SpecForge AI")).toBeInTheDocument();
+    expect(screen.getAllByText("SpecForge AI")[0]).toBeInTheDocument();
   });
 
   it("renders header with breadcrumb", () => {
@@ -63,8 +63,8 @@ describe("Layout", () => {
         <div />
       </Layout>,
     );
-    expect(screen.getByText("clarify")).toBeInTheDocument();
-    expect(screen.getByText("open questions")).toBeInTheDocument();
+    expect(screen.getAllByText("SpecForge AI")[0]).toBeInTheDocument();
+    expect(screen.getByText("Overview")).toBeInTheDocument();
   });
 
   it("renders navigation items", () => {
@@ -74,8 +74,8 @@ describe("Layout", () => {
       </Layout>,
     );
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Ingest")).toBeInTheDocument();
-    expect(screen.getByText("Board")).toBeInTheDocument();
+    expect(screen.getByText("1. Ingest BRD")).toBeInTheDocument();
+    expect(screen.getByText("4. Kanban Board")).toBeInTheDocument();
   });
 
   it("toggles sidebar on button click", () => {

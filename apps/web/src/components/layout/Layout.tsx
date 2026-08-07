@@ -21,12 +21,13 @@ export function Layout({
         activeView={activeView}
         onNavigate={onNavigate}
       />
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 w-full h-full">
         <Header
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          activeView={activeView}
         />
-        <main className="flex-1 overflow-auto bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.08),transparent)]">
+        <main className="flex-1 overflow-auto w-full min-w-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(37,99,235,0.08),transparent)]">
           {children}
         </main>
       </div>

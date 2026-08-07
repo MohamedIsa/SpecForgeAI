@@ -1,14 +1,33 @@
 import { FolderIcon, SearchIcon, BellIcon, PanelLeft } from "lucide-react";
+import { useProjectWorkspace } from "@/lib/project-context";
+import { trpc } from "@/trpc";
+import type { SidebarView } from "./Sidebar.tsx";
+
+const STAGE_LABELS: Record<SidebarView, string> = {
+  dashboard: "Overview",
+  ingest: "1. Ingest BRD",
+  clarify: "2. AI Clarification",
+  backlog: "3. Backlog Review",
+  board: "4. Kanban Board",
+};
 
 export function Header({
   sidebarCollapsed,
   onToggleSidebar,
+  activeView = "dashboard",
 }: {
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  activeView?: SidebarView;
 }) {
+  const { currentProjectId } = useProjectWorkspace();
+  const projectsQuery = trpc.project.listUserProjects.useQuery();
+  const currentProject = projectsQuery.data?.find((p) => p.id === currentProjectId);
+
+  const stageTitle = STAGE_LABELS[activeView] ?? "Overview";
+
   return (
-    <header className="flex items-center shrink-0 px-lg h-14 border-b border-sidebar-border bg-header-bg">
+    <header className="flex items-center shrink-0 px-lg h-14 border-b border-sidebar-border bg-header-bg w-full min-w-0">
       {sidebarCollapsed && (
         <button
           onClick={onToggleSidebar}
@@ -19,20 +38,19 @@ export function Header({
         </button>
       )}
 
-      <div className="flex items-center gap-xs text-sm text-text-disabled">
-        <FolderIcon size={14} className="shrink-0" />
+      <div className="flex items-center gap-xs text-sm text-text-disabled min-w-0">
+        <FolderIcon size={14} className="shrink-0 text-primary" />
         <span className="text-text-secondary">/</span>
-        <span className="text-text-inverse font-medium">clarify</span>
-        <span className="text-sidebar-item-border">·</span>
-        <span className="flex items-center gap-1">
-          <span className="inline-flex items-center justify-center size-4.5 rounded-full text-2xs font-semibold bg-primary text-text-inverse">
-            3
-          </span>
-          <span className="text-text-secondary">open questions</span>
+        <span className="text-text-inverse font-medium truncate">
+          {currentProject?.name ?? "SpecForge AI"}
+        </span>
+        <span className="text-sidebar-item-border">/</span>
+        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0">
+          {stageTitle}
         </span>
       </div>
 
-      <div className="flex items-center gap-sm ml-auto">
+      <div className="flex items-center gap-sm ml-auto shrink-0">
         <button className="flex items-center gap-sm px-sm py-1 rounded-md text-sm text-text-secondary bg-sidebar-item border border-sidebar-border transition-colors hover:text-text-disabled hover:border-sidebar-item-border cursor-pointer">
           <SearchIcon size={14} />
           <span className="hidden sm:inline">Search</span>

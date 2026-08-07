@@ -188,6 +188,18 @@ function readProjectId(request: FastifyRequest): string | null {
 export async function registerBrdUploadRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post(
     "/api/brd/upload",
+    {
+      // Documentation only (DEV-TEMP-T1) — deliberately no body/querystring
+      // keys here, so Fastify's schema validation is not applied to this
+      // route; the manual multipart handling and projectId check below are
+      // unchanged.
+      schema: {
+        description: "Uploads one or more BRD files, scanning each with ClamAV before storing it.",
+        summary: "Upload BRD files",
+        tags: ["brd"],
+        consumes: ["multipart/form-data"],
+      },
+    },
     async (request: FastifyRequest, reply: FastifyReply): Promise<UploadResponseBody> => {
       const userId = verifyBearerToken(request.headers.authorization);
       if (!userId) {

@@ -1,47 +1,8 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import cookie from "@fastify/cookie";
-import multipart from "@fastify/multipart";
-import {
-  fastifyTRPCPlugin,
-  type FastifyTRPCPluginOptions,
-} from "@trpc/server/adapters/fastify";
-import { registerBrdUploadRoute, BRD_UPLOAD_LIMITS } from "./routes/brd-upload";
-import { appRouter } from "./router";
-import type { AppRouter, Context } from "./router";
-import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
-import { verifyBearerToken } from "./lib/jwt";
-
-function createContext({ req, res }: CreateFastifyContextOptions): Context {
-  const userId = verifyBearerToken(req.headers.authorization);
-  return { req, res, userId };
-}
+import { buildApp } from "./app";
 
 const PORT = Number(process.env.PORT) || 3000;
 
-const fastify = Fastify({
-  maxParamLength: 5000,
-  logger: true,
-});
-
-await fastify.register(cors, {
-  origin: ["http://localhost:5173"],
-  credentials: true,
-});
-
-await fastify.register(cookie);
-
-await fastify.register(multipart, { limits: BRD_UPLOAD_LIMITS });
-
-await registerBrdUploadRoute(fastify);
-
-await fastify.register(fastifyTRPCPlugin, {
-  prefix: "/trpc",
-  trpcOptions: {
-    router: appRouter,
-    createContext,
-  } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
-});
+const fastify = await buildApp();
 
 try {
   await fastify.listen({ port: PORT, host: "0.0.0.0" });

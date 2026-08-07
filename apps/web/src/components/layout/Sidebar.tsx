@@ -3,10 +3,10 @@ import { ProjectPicker } from "@/components/projects/ProjectPicker";
 
 const NAV_ITEMS = [
   { label: "Dashboard", view: "dashboard", icon: "□", badge: undefined as number | undefined },
-  { label: "Ingest", view: "ingest", icon: "↓", badge: undefined as number | undefined },
-  { label: "Clarify", view: "clarify", icon: "?", badge: 3 },
-  { label: "Backlog", view: "backlog", icon: "☰", badge: undefined as number | undefined },
-  { label: "Board", view: "board", icon: "▥", badge: undefined as number | undefined },
+  { label: "1. Ingest BRD", view: "ingest", icon: "↓", badge: undefined as number | undefined },
+  { label: "2. AI Clarification", view: "clarify", icon: "?", badge: undefined as number | undefined },
+  { label: "3. Backlog Review", view: "backlog", icon: "☰", badge: undefined as number | undefined },
+  { label: "4. Kanban Board", view: "board", icon: "▥", badge: undefined as number | undefined },
 ] as const;
 
 export type SidebarView = (typeof NAV_ITEMS)[number]["view"];

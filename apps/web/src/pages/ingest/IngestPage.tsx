@@ -153,8 +153,8 @@ export function IngestPage({ onNavigateToClarify }: IngestPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      <div className="flex items-center justify-between px-lg h-14 shrink-0 border-b border-column-border">
+    <div className="flex flex-col w-full h-full min-w-0 overflow-y-auto">
+      <div className="flex items-center justify-between px-lg h-14 shrink-0 border-b border-column-border w-full">
         <div className="flex items-center gap-sm min-w-0">
           <h1 className="text-sm font-semibold text-text-inverse truncate">Ingest BRD</h1>
           <span className="text-2xs text-text-secondary shrink-0">
@@ -167,7 +167,7 @@ export function IngestPage({ onNavigateToClarify }: IngestPageProps) {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-lg p-lg max-w-3xl w-full">
+      <div className="flex flex-col gap-lg p-lg max-w-4xl w-full mx-auto min-w-0">
         <BrdUploadZone
           items={items}
           onFilesSelected={(files) => {
