@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rename, unlink } from "node:fs/promises";
+import { mkdir, rename, copyFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { pipeline } from "node:stream/promises";
@@ -27,6 +27,35 @@ import {
 } from "../lib/brd-storage";
 
 export const MALWARE_REJECTION_MESSAGE = "Malware signature detected";
+export const MALFORMED_UPLOAD_MESSAGE = "The upload was malformed or stalled before it could be read";
+
+/** Guards against a malformed or stalled multipart body (e.g. a part missing
+ *  its terminating boundary) that would otherwise leave `request.files()`
+ *  awaiting bytes that will never arrive, hanging the request forever. */
+class MultipartStallError extends Error {
+  constructor() {
+    super(MALFORMED_UPLOAD_MESSAGE);
+    this.name = "MultipartStallError";
+  }
+}
+
+const DEFAULT_MULTIPART_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new MultipartStallError()), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -73,7 +102,16 @@ async function bufferToTempFile(part: MultipartFile): Promise<ScannedUpload> {
     hash.update(chunk);
   });
 
-  await pipeline(part.file, createWriteStream(tempPath));
+  try {
+    await pipeline(part.file, createWriteStream(tempPath));
+  } catch (error) {
+    // processFilePart's cleanup only covers tempPath once this function has
+    // successfully returned it — a rejection here (a stalled/aborted part,
+    // via `withTimeout` abandoning this call) would otherwise leave the
+    // partially-written file behind forever.
+    await safeUnlink(tempPath);
+    throw error;
+  }
 
   return {
     tempPath,
@@ -82,6 +120,33 @@ async function bufferToTempFile(part: MultipartFile): Promise<ScannedUpload> {
     // @fastify/multipart flags the part when it hit the configured size limit.
     truncated: part.file.truncated,
   };
+}
+
+/**
+ * Promotes the temp file into permanent storage. `rename()` is preferred
+ * (atomic, no window where the file half-exists) but fails with EXDEV when
+ * the temp directory (os.tmpdir(), often tmpfs) and the upload directory are
+ * on different filesystems/mounts — a real-world deployment shape rename()
+ * simply cannot handle. That specific failure falls back to copy + unlink;
+ * any other error is a genuine fault and is left to propagate.
+ */
+async function moveFile(source: string, destination: string): Promise<void> {
+  try {
+    await rename(source, destination);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "EXDEV") throw error;
+    try {
+      await copyFile(source, destination);
+    } catch (copyError) {
+      // A partial copy (e.g. ENOSPC on the destination mount) must not leave
+      // a half-written blob behind — same invariant the DB-insert failure
+      // path below already enforces for storagePath.
+      await safeUnlink(destination);
+      throw copyError;
+    }
+    await unlink(source);
+  }
 }
 
 async function safeUnlink(filePath: string): Promise<void> {
@@ -139,7 +204,7 @@ async function processFilePart(
     const storagePath = buildStoragePath(uploadDir, projectId, fileId, extension);
 
     await mkdir(path.dirname(storagePath), { recursive: true });
-    await rename(upload.tempPath, storagePath);
+    await moveFile(upload.tempPath, storagePath);
 
     try {
       await pool.query(
@@ -185,7 +250,17 @@ function readProjectId(request: FastifyRequest): string | null {
   return value;
 }
 
-export async function registerBrdUploadRoute(fastify: FastifyInstance): Promise<void> {
+export interface RegisterBrdUploadRouteOptions {
+  /** Injectable purely so tests can exercise the stall path without a real 30s wait. */
+  multipartTimeoutMs?: number;
+}
+
+export async function registerBrdUploadRoute(
+  fastify: FastifyInstance,
+  options: RegisterBrdUploadRouteOptions = {},
+): Promise<void> {
+  const multipartTimeoutMs = options.multipartTimeoutMs ?? DEFAULT_MULTIPART_TIMEOUT_MS;
+
   fastify.post(
     "/api/brd/upload",
     {
@@ -231,13 +306,31 @@ export async function registerBrdUploadRoute(fastify: FastifyInstance): Promise<
       const results: UploadedFileResult[] = [];
 
       try {
-        for await (const part of request.files()) {
-          results.push(await processFilePart(part, projectId, userId));
-        }
+        await withTimeout(
+          (async () => {
+            for await (const part of request.files()) {
+              results.push(await processFilePart(part, projectId, userId));
+            }
+          })(),
+          multipartTimeoutMs,
+        );
       } catch (error) {
         if (error instanceof ClamAvUnavailableError || error instanceof ClamAvProtocolError) {
           void reply.code(503);
           return { files: results, error: "Virus scanning is unavailable, please retry" };
+        }
+        if (error instanceof MultipartStallError) {
+          // The parser is stuck waiting on bytes that will never arrive, so
+          // the connection is unusable and must eventually be torn down —
+          // but destroying it now, before the reply below has been written,
+          // takes the response with it and the client gets a bare connection
+          // reset instead of this 400. Deferring the destroy until Fastify
+          // has actually finished flushing the reply is what lets both
+          // happen: the client reads the error, then the stuck connection
+          // is freed.
+          reply.raw.once("finish", () => request.raw.destroy());
+          void reply.code(400);
+          return { files: results, error: MALFORMED_UPLOAD_MESSAGE };
         }
         throw error;
       }
