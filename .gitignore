@@ -33,3 +33,6 @@ infra/staging/terraform.tfvars
 infra/staging/terraform.tfstate
 infra/staging/terraform.tfstate.*
 infra/staging/.terraform/
+
+# SonarCloud issue exports (scripts/export-sonar-issues.sh)
+sonar-export/
