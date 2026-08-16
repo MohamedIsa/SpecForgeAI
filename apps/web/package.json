@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
