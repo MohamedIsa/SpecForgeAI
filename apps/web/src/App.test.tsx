@@ -47,6 +47,8 @@ const generatedBacklog = {
   summary: { epicCount: 1, ticketCount: 1, totalStoryPoints: 3 },
 };
 
+let currentProjects: typeof sampleProjects = sampleProjects;
+
 const generateBacklogMutate = vi.fn();
 const publishBacklogMutate = vi.fn();
 let publishOptions:
@@ -81,7 +83,7 @@ vi.mock("@/trpc", () => ({
     }),
     project: {
       listUserProjects: {
-        useQuery: () => ({ data: sampleProjects, isLoading: false }),
+        useQuery: () => ({ data: currentProjects, isLoading: false }),
       },
       createProject: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       inviteMember: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
@@ -104,6 +106,16 @@ vi.mock("@/trpc", () => ({
       updateTicketStatus: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       createTicket: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       updateTicket: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+    },
+    brd: {
+      listFiles: {
+        useQuery: () => ({ data: [{ id: "brd-1" }], isLoading: false }),
+      },
+    },
+    clarification: {
+      getSessionState: {
+        useQuery: () => ({ data: { status: "completed" }, isLoading: false }),
+      },
     },
     backlog: {
       generateBacklog: {
@@ -135,6 +147,7 @@ vi.mock("@/trpc", () => ({
 beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem("specforge.workspace.currentProjectId", PROJECT_ID);
+  currentProjects = sampleProjects;
   generateBacklogMutate.mockReset();
   publishBacklogMutate.mockReset();
   publishOptions = undefined;
@@ -164,5 +177,59 @@ describe("App — publish-to-board navigation", () => {
     expect(
       screen.getByText("Published 1 tickets across 1 epics to the board."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("App — lifecycle stage gating", () => {
+  it("locks a stage whose prerequisite is unmet and blocks navigation to it", () => {
+    // The default mock has zero tickets, so board (which requires >=1
+    // ticket) stays locked even though its query is enabled.
+    render(
+      <ProjectProvider>
+        <App />
+      </ProjectProvider>,
+    );
+
+    const boardButton = screen.getByRole("button", { name: /4\. Kanban Board/ });
+    expect(boardButton).toBeDisabled();
+    expect(boardButton).toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.click(boardButton);
+    expect(boardButton).not.toHaveAttribute("aria-current", "page");
+  });
+
+  it("leaves a stage whose prerequisite is met unlocked and clickable", () => {
+    render(
+      <ProjectProvider>
+        <App />
+      </ProjectProvider>,
+    );
+
+    // Backlog requires only a completed clarification session (mocked as
+    // completed), independent of the BRD/ticket state used above — clicking
+    // it directly proves handleNavigate's allow-path, not just its guard.
+    const backlogButton = screen.getByRole("button", { name: /3\. Backlog Review/ });
+    expect(backlogButton).not.toBeDisabled();
+    expect(backlogButton).not.toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.click(backlogButton);
+    expect(backlogButton).toHaveAttribute("aria-current", "page");
+  });
+});
+
+describe("App — standalone onboarding", () => {
+  it("renders the full-screen onboarding wizard instead of the sidebar layout when the user has no projects", () => {
+    currentProjects = [];
+
+    render(
+      <ProjectProvider>
+        <App />
+      </ProjectProvider>,
+    );
+
+    expect(screen.getByText("Welcome to SpecForge AI")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Toggle sidebar")).not.toBeInTheDocument();
+    // Nothing to cancel back to with zero projects.
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });
 });

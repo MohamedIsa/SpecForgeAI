@@ -4,6 +4,31 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Layout } from "./Layout.tsx";
 import { ProjectProvider } from "@/lib/project-context";
 
+const sampleProjects = [
+  {
+    id: "project-1",
+    name: "Spec Forge",
+    key: "SPEC",
+    description: null,
+    template: "kanban" as const,
+    nextTicketNumber: 101,
+    createdAt: new Date().toISOString(),
+    role: "editor" as const,
+    memberCount: 1,
+  },
+];
+
+let currentProjects: typeof sampleProjects = [];
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({
+    session: { user: { id: "user-1", fullName: "Jane Doe", email: "jane@example.com" } },
+    isHydrating: false,
+    setSession: vi.fn(),
+    logout: vi.fn(),
+  }),
+}));
+
 vi.mock("@/trpc", () => ({
   trpc: {
     useUtils: () => ({
@@ -18,7 +43,7 @@ vi.mock("@/trpc", () => ({
     }),
     project: {
       listUserProjects: {
-        useQuery: () => ({ data: [], isLoading: false }),
+        useQuery: () => ({ data: currentProjects, isLoading: false }),
       },
       createProject: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -36,6 +61,7 @@ function renderLayout(children: ReactNode) {
 
 beforeEach(() => {
   window.localStorage.clear();
+  currentProjects = [];
 });
 
 describe("Layout", () => {
@@ -89,14 +115,30 @@ describe("Layout", () => {
     fireEvent.click(toggleButton);
   });
 
-  it("renders user profile section", () => {
+  it("renders the user's name in the sidebar profile trigger", () => {
     renderLayout(
       <Layout>
         <div />
       </Layout>,
     );
-    expect(screen.getByText("Mohamed Isa")).toBeInTheDocument();
-    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+  });
+
+  it("opens the sidebar user menu with email, role, and a Log out action", () => {
+    currentProjects = sampleProjects;
+    window.localStorage.setItem("specforge.workspace.currentProjectId", "project-1");
+    renderLayout(
+      <Layout>
+        <div />
+      </Layout>,
+    );
+
+    const triggers = screen.getAllByLabelText("User menu");
+    fireEvent.click(triggers[0]!);
+
+    expect(screen.getByText("jane@example.com")).toBeInTheDocument();
+    expect(screen.getAllByText("editor").length).toBeGreaterThan(0);
+    expect(screen.getByRole("menuitem", { name: /Log out/ })).toBeInTheDocument();
   });
 
   it("renders the workspace switcher with the placeholder label when no project exists", () => {

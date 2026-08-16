@@ -6,10 +6,12 @@ export function Layout({
   children,
   activeView,
   onNavigate,
+  unlocked,
 }: {
   children: ReactNode;
   activeView?: SidebarView;
   onNavigate?: (view: SidebarView) => void;
+  unlocked?: Record<SidebarView, boolean>;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -20,6 +22,7 @@ export function Layout({
         onToggle={() => setSidebarCollapsed((v) => !v)}
         activeView={activeView}
         onNavigate={onNavigate}
+        unlocked={unlocked}
       />
       <div className="flex flex-1 flex-col min-w-0 w-full h-full">
         <Header

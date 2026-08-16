@@ -2,17 +2,26 @@ import { useState } from "react";
 import { Layout } from "./components/layout/Layout.tsx";
 import { AuthModal } from "./components/auth/AuthModal.tsx";
 import { SuccessToast } from "./components/ui/toast.tsx";
+import { ProjectOnboardingWizard } from "./components/projects/ProjectOnboardingWizard.tsx";
 import type { SidebarView } from "./components/layout/Sidebar.tsx";
 import { trpc } from "./trpc.ts";
 import { useAuth } from "./lib/auth-context.tsx";
+import { useProjectWorkspace } from "./lib/project-context.tsx";
+import { useLifecycleGating } from "./lib/use-lifecycle-gating.ts";
 import { BoardPage } from "./pages/board/BoardPage.tsx";
 import { IngestPage } from "./pages/ingest/IngestPage.tsx";
 import { ClarifyPage } from "./pages/clarify/ClarifyPage.tsx";
 import { BacklogReviewPage } from "./pages/backlog/BacklogReviewPage.tsx";
 
 export function App() {
-  const healthQuery = trpc.health.useQuery();
+  trpc.health.useQuery();
   const { session, isHydrating } = useAuth();
+  const { currentProjectId, isOnboarding, stopOnboarding } = useProjectWorkspace();
+  const projectsQuery = trpc.project.listUserProjects.useQuery(undefined, {
+    enabled: Boolean(session),
+  });
+  const { unlocked } = useLifecycleGating(currentProjectId);
+
   const [view, setView] = useState<SidebarView>("dashboard");
   // Autostart is a one-shot signal from the Clarify CTA, not a property of
   // the "backlog" view itself — arriving here via the sidebar must not spend
@@ -23,6 +32,13 @@ export function App() {
   // could read it.
   const [globalToast, setGlobalToast] = useState<string | null>(null);
 
+  function handleNavigate(nextView: SidebarView): void {
+    // Defense in depth alongside Sidebar's own click-guard: a locked stage
+    // is never actually reachable, no matter how navigation is triggered.
+    if (!unlocked[nextView]) return;
+    setView(nextView);
+  }
+
   if (isHydrating) {
     return null;
   }
@@ -31,17 +47,34 @@ export function App() {
     return <AuthModal />;
   }
 
+  const hasNoProjects = projectsQuery.data !== undefined && projectsQuery.data.length === 0;
+
+  if (hasNoProjects || isOnboarding) {
+    return (
+      <ProjectOnboardingWizard
+        // A user with an existing project can cancel back out of "New
+        // workspace"; a brand-new account with zero projects has nothing to
+        // cancel back to, so the flow is mandatory until one is created.
+        onCancel={hasNoProjects ? undefined : stopOnboarding}
+        onCreated={(message) => {
+          stopOnboarding();
+          setGlobalToast(message);
+        }}
+      />
+    );
+  }
+
   return (
-    <Layout activeView={view} onNavigate={setView}>
+    <Layout activeView={view} onNavigate={handleNavigate} unlocked={unlocked}>
       {view === "board" ? (
         <BoardPage />
       ) : view === "ingest" ? (
-        <IngestPage onNavigateToClarify={() => setView("clarify")} />
+        <IngestPage onNavigateToClarify={() => handleNavigate("clarify")} />
       ) : view === "clarify" ? (
         <ClarifyPage
           onBacklogReady={() => {
             setAutoStartBacklog(true);
-            setView("backlog");
+            handleNavigate("backlog");
           }}
         />
       ) : view === "backlog" ? (

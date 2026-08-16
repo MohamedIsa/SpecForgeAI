@@ -44,6 +44,9 @@ const sampleTickets = [
   },
 ];
 
+let currentTickets: typeof sampleTickets = sampleTickets;
+let currentClarificationStatus: "active" | "completed" | null = "completed";
+
 const updateTicketStatusMutate = vi.fn();
 const createTicketMutate = vi.fn();
 const updateTicketMutate = vi.fn();
@@ -93,9 +96,22 @@ vi.mock("@/trpc", () => ({
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
     },
+    brd: {
+      listFiles: {
+        useQuery: () => ({ data: [], isLoading: false }),
+      },
+    },
+    clarification: {
+      getSessionState: {
+        useQuery: () => ({
+          data: currentClarificationStatus ? { status: currentClarificationStatus } : null,
+          isLoading: false,
+        }),
+      },
+    },
     ticket: {
       getProjectTickets: {
-        useQuery: () => ({ data: sampleTickets, isLoading: false }),
+        useQuery: () => ({ data: currentTickets, isLoading: false }),
       },
       getTicketDetails: {
         useQuery: (input: { ticketId: string }) => ({
@@ -139,6 +155,8 @@ function renderBoard() {
 
 beforeEach(() => {
   window.localStorage.clear();
+  currentTickets = sampleTickets;
+  currentClarificationStatus = "completed";
   updateTicketStatusMutate.mockReset();
   createTicketMutate.mockReset();
   updateTicketMutate.mockReset();
@@ -242,5 +260,48 @@ describe("BoardPage", () => {
     fireEvent.drop(sameColumn);
 
     expect(updateTicketStatusMutate).not.toHaveBeenCalled();
+  });
+});
+
+describe("BoardPage — manual ticket creation gating (FEAT-LIFECYCLE-GATING)", () => {
+  it("disables New ticket and Add card when clarification has not completed, even with existing tickets", () => {
+    currentClarificationStatus = "active";
+    renderBoard();
+
+    expect(screen.getByRole("button", { name: /New ticket/ })).toBeDisabled();
+    for (const button of screen.getAllByText("+ Add card")) {
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it("disables New ticket and Add card when no AI tickets exist, even with clarification completed", () => {
+    currentTickets = [];
+    currentClarificationStatus = "completed";
+    renderBoard();
+
+    expect(screen.getByRole("button", { name: /New ticket/ })).toBeDisabled();
+    for (const button of screen.getAllByText("+ Add card")) {
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it("clicking a disabled New ticket button does not open the Create Ticket modal", () => {
+    currentTickets = [];
+    renderBoard();
+
+    fireEvent.click(screen.getByRole("button", { name: /New ticket/ }));
+    expect(screen.queryByRole("heading", { name: "New ticket" })).not.toBeInTheDocument();
+  });
+
+  it("enables New ticket and Add card once clarification is completed and AI tickets exist", () => {
+    renderBoard();
+
+    expect(screen.getByRole("button", { name: /New ticket/ })).not.toBeDisabled();
+    for (const button of screen.getAllByText("+ Add card")) {
+      expect(button).not.toBeDisabled();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: /New ticket/ }));
+    expect(screen.getByRole("heading", { name: "New ticket" })).toBeInTheDocument();
   });
 });

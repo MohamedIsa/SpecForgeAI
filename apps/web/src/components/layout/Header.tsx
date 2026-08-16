@@ -2,6 +2,7 @@ import { FolderIcon, SearchIcon, BellIcon, PanelLeft } from "lucide-react";
 import { useProjectWorkspace } from "@/lib/project-context";
 import { trpc } from "@/trpc";
 import type { SidebarView } from "./Sidebar.tsx";
+import { UserMenu } from "./UserMenu.tsx";
 
 const STAGE_LABELS: Record<SidebarView, string> = {
   dashboard: "Overview",
@@ -67,9 +68,7 @@ export function Header({
           <span className="absolute top-1 right-1 size-1.5 rounded-full bg-error" />
         </button>
 
-        <div className="size-7 rounded-full flex items-center justify-center text-xs font-medium text-text-inverse bg-primary shrink-0">
-          MI
-        </div>
+        <UserMenu variant="header" />
       </div>
     </header>
   );

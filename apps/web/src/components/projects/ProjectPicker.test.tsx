@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProjectPicker } from "./ProjectPicker";
-import { ProjectProvider } from "@/lib/project-context";
+import { ProjectProvider, useProjectWorkspace } from "@/lib/project-context";
 
 const sampleProjects = [
   {
@@ -57,10 +57,17 @@ vi.mock("@/trpc", () => ({
   },
 }));
 
+/** Surfaces ProjectContext's onboarding flag so tests can assert on it. */
+function OnboardingProbe() {
+  const { isOnboarding } = useProjectWorkspace();
+  return <span data-testid="onboarding-probe">{isOnboarding ? "onboarding" : "idle"}</span>;
+}
+
 function renderPicker() {
   return render(
     <ProjectProvider>
       <ProjectPicker />
+      <OnboardingProbe />
     </ProjectProvider>,
   );
 }
@@ -96,11 +103,12 @@ describe("ProjectPicker", () => {
     );
   });
 
-  it("opens the Create Project modal via the New workspace trigger", () => {
+  it("starts the standalone onboarding wizard via the New workspace trigger, and closes the dropdown", () => {
     renderPicker();
     fireEvent.click(screen.getByRole("button", { name: "Workspace switcher" }));
     fireEvent.click(screen.getByText("New workspace"));
-    expect(screen.getByRole("heading", { name: "New workspace" })).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-probe")).toHaveTextContent("onboarding");
+    expect(screen.queryByText("Docs Site")).not.toBeInTheDocument();
   });
 
   it("opens the Invite Team Members modal via the Invite team members trigger", () => {

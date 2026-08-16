@@ -1,5 +1,6 @@
-import { ChevronsLeftRightIcon } from "lucide-react";
+import { ChevronsLeftRightIcon, LockIcon } from "lucide-react";
 import { ProjectPicker } from "@/components/projects/ProjectPicker";
+import { UserMenu } from "./UserMenu";
 
 const NAV_ITEMS = [
   { label: "Dashboard", view: "dashboard", icon: "□", badge: undefined as number | undefined },
@@ -11,16 +12,27 @@ const NAV_ITEMS = [
 
 export type SidebarView = (typeof NAV_ITEMS)[number]["view"];
 
+const ALL_UNLOCKED: Record<SidebarView, boolean> = {
+  dashboard: true,
+  ingest: true,
+  clarify: true,
+  backlog: true,
+  board: true,
+};
+
 export function Sidebar({
   collapsed,
   onToggle,
   activeView = "dashboard",
   onNavigate = () => {},
+  unlocked = ALL_UNLOCKED,
 }: {
   collapsed: boolean;
   onToggle: () => void;
   activeView?: SidebarView;
   onNavigate?: (view: SidebarView) => void;
+  /** Which stages are reachable for the current project — see useLifecycleGating. */
+  unlocked?: Record<SidebarView, boolean>;
 }) {
   return (
     <aside
@@ -48,49 +60,53 @@ export function Sidebar({
 
       <nav className="flex-1 px-sm">
         <ul className="flex flex-col gap-0.5">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.label}>
-              <button
-                type="button"
-                onClick={() => onNavigate(item.view)}
-                aria-current={activeView === item.view ? "page" : undefined}
-                className={`w-full flex items-center gap-sm px-sm py-1.5 rounded-md text-sm transition-colors hover:bg-text-inverse/[0.04] hover:text-text-inverse whitespace-nowrap cursor-pointer ${
-                  activeView === item.view ? "text-text-inverse bg-text-inverse/[0.04]" : "text-text-disabled"
-                }`}
-              >
-                <span className="size-4 flex items-center justify-center text-xs">
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-                {item.badge && (
-                  <span className="ml-auto px-1.5 py-px rounded-full text-2xs font-medium bg-primary text-text-inverse">
-                    {item.badge}
+          {NAV_ITEMS.map((item) => {
+            const isUnlocked = unlocked[item.view];
+            return (
+              <li key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isUnlocked) onNavigate(item.view);
+                  }}
+                  disabled={!isUnlocked}
+                  aria-current={activeView === item.view ? "page" : undefined}
+                  aria-disabled={!isUnlocked}
+                  title={isUnlocked ? undefined : "Complete the previous stage to unlock this"}
+                  className={`w-full flex items-center gap-sm px-sm py-1.5 rounded-md text-sm transition-colors whitespace-nowrap ${
+                    isUnlocked
+                      ? `hover:bg-text-inverse/[0.04] hover:text-text-inverse cursor-pointer ${
+                          activeView === item.view
+                            ? "text-text-inverse bg-text-inverse/[0.04]"
+                            : "text-text-disabled"
+                        }`
+                      : "text-text-disabled/50 cursor-not-allowed"
+                  }`}
+                >
+                  <span className="size-4 flex items-center justify-center text-xs">
+                    {item.icon}
                   </span>
-                )}
-              </button>
-            </li>
-          ))}
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="ml-auto px-1.5 py-px rounded-full text-2xs font-medium bg-primary text-text-inverse">
+                      {item.badge}
+                    </span>
+                  )}
+                  {!isUnlocked && (
+                    <LockIcon
+                      size={12}
+                      className="ml-auto text-text-disabled/60"
+                      aria-label="Locked"
+                    />
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
-      <div className="flex items-center gap-sm px-md py-sm mx-sm mb-sm rounded-md bg-sidebar-item">
-        <div className="relative shrink-0">
-          <div className="size-7 rounded-full flex items-center justify-center text-xs font-medium text-text-inverse bg-primary">
-            MI
-          </div>
-          <div className="absolute -bottom-px -right-px size-3.5 rounded-full flex items-center justify-center border-2 border-sidebar-bg text-3xs font-bold uppercase tracking-wide bg-warning text-text">
-            O
-          </div>
-        </div>
-        <div className="flex flex-col min-w-0">
-          <span className="text-sm font-medium text-text-inverse leading-tight whitespace-nowrap">
-            Mohamed Isa
-          </span>
-          <span className="text-2xs font-semibold text-warning uppercase tracking-wide whitespace-nowrap">
-            Owner
-          </span>
-        </div>
-      </div>
+      <UserMenu variant="sidebar" />
     </aside>
   );
 }

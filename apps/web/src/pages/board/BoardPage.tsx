@@ -5,6 +5,7 @@ import { SuccessToast, ErrorToast } from "@/components/ui/toast";
 import { trpc } from "@/trpc";
 import type { RouterOutputs } from "@/trpc";
 import { useProjectWorkspace } from "@/lib/project-context";
+import { useLifecycleGating } from "@/lib/use-lifecycle-gating";
 import { getInitials } from "@/lib/initials";
 import { TicketCard, type TicketCardData } from "./TicketCard";
 import { ManageStatusesModal } from "./ManageStatusesModal";
@@ -29,6 +30,8 @@ function toTicketCardData(ticket: TicketWithAssignee): TicketCardData {
 
 export function BoardPage() {
   const { currentProjectId } = useProjectWorkspace();
+  const { clarificationCompleted, hasTickets } = useLifecycleGating(currentProjectId);
+  const canCreateTickets = clarificationCompleted && hasTickets;
   const [isManageStatusesOpen, setIsManageStatusesOpen] = useState(false);
   const [createTicketStatusId, setCreateTicketStatusId] = useState<string | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -114,6 +117,12 @@ export function BoardPage() {
             Manage statuses
           </Button>
           <Button
+            disabled={!canCreateTickets}
+            title={
+              canCreateTickets
+                ? undefined
+                : "Complete AI clarification and generate a backlog before adding tickets"
+            }
             onClick={() => {
               const firstStatus = statuses[0];
               if (firstStatus) setCreateTicketStatusId(firstStatus.id);
@@ -177,8 +186,14 @@ export function BoardPage() {
                 <div className="p-sm shrink-0">
                   <button
                     type="button"
+                    disabled={!canCreateTickets}
+                    title={
+                      canCreateTickets
+                        ? undefined
+                        : "Complete AI clarification and generate a backlog before adding tickets"
+                    }
                     onClick={() => setCreateTicketStatusId(status.id)}
-                    className="w-full py-sm rounded-md text-xs text-text-secondary hover:text-text-inverse hover:bg-sidebar-item transition-colors cursor-pointer"
+                    className="w-full py-sm rounded-md text-xs text-text-secondary hover:text-text-inverse hover:bg-sidebar-item transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-secondary"
                   >
                     + Add card
                   </button>

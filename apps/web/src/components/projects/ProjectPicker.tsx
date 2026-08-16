@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, PlusIcon, UserPlusIcon } from "lucide-react";
 import { trpc } from "@/trpc";
 import { useProjectWorkspace } from "@/lib/project-context";
-import { CreateProjectModal } from "./CreateProjectModal";
 import { InviteMembersModal } from "./InviteMembersModal";
 import { SuccessToast } from "@/components/ui/toast";
 
 export function ProjectPicker() {
-  const { currentProjectId, setCurrentProjectId } = useProjectWorkspace();
+  const { currentProjectId, setCurrentProjectId, startOnboarding } = useProjectWorkspace();
   const projectsQuery = trpc.project.listUserProjects.useQuery();
   const [isOpen, setIsOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,7 +100,7 @@ export function ProjectPicker() {
             </button>
             <button
               onClick={() => {
-                setIsCreateOpen(true);
+                startOnboarding();
                 setIsOpen(false);
               }}
               className="w-full flex items-center gap-sm px-sm py-1.5 text-sm text-text-disabled hover:text-text-inverse hover:bg-text-inverse/[0.04] transition-colors cursor-pointer"
@@ -114,11 +112,6 @@ export function ProjectPicker() {
         </div>
       )}
 
-      <CreateProjectModal
-        open={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={(message) => setSuccessMessage(message)}
-      />
       <InviteMembersModal
         open={isInviteOpen}
         projectId={currentProject?.id ?? null}

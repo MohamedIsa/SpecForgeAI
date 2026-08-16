@@ -68,7 +68,7 @@ export function AuthModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
       <div
         className={`w-[400px] rounded-2lg border border-modal-border bg-modal-bg p-lg ${
           isShaking ? "animate-sf-shake" : ""
