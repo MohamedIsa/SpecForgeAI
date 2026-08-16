@@ -52,7 +52,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # apps/web's test script passes NODE_OPTIONS=--no-experimental-webstorage,
+          # a flag Node only recognizes from v22 onward; Node 20 rejects it outright.
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
