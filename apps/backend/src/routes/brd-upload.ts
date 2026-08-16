@@ -273,6 +273,7 @@ export async function registerBrdUploadRoute(
         summary: "Upload BRD files",
         tags: ["brd"],
         consumes: ["multipart/form-data"],
+        security: [{ bearerAuth: [] }],
       },
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<UploadResponseBody> => {
