@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import type { PoolClient } from "pg";
+import type { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { pool } from "../db/pool";
 import { generateBacklogInput, publishBacklogInput } from "../validation";
@@ -90,6 +92,105 @@ export interface PublishBacklogResult {
   ticketCount: number;
 }
 
+type PublishBacklogPayload = z.infer<typeof publishBacklogInput>;
+type PublishEpicPayload = PublishBacklogPayload["epics"][number];
+type PublishTicketPayload = PublishEpicPayload["tickets"][number];
+
+interface EpicInsertResult {
+  idByRef: Map<string, string>;
+  nextTicketNumber: number;
+}
+
+/** Inserts one epic and its tickets, assigning sequential keys starting at
+ *  `startTicketNumber`. Returns the ids assigned to each ticket's `ref` (for
+ *  the dependency-resolution pass) and the next free ticket number so the
+ *  caller can thread it into the following epic. */
+async function insertEpicWithTickets(
+  client: PoolClient,
+  projectId: string,
+  projectKey: string,
+  firstStatusId: string,
+  epic: PublishEpicPayload,
+  startTicketNumber: number,
+): Promise<EpicInsertResult> {
+  const epicResult = await client.query<{ id: string }>(
+    `INSERT INTO epics (project_id, title, position)
+     VALUES ($1, $2, (SELECT COALESCE(MAX(position), -1) + 1 FROM epics WHERE project_id = $1))
+     RETURNING id`,
+    [projectId, epic.title],
+  );
+  const epicId = epicResult.rows[0]?.id;
+  if (!epicId) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create epic" });
+  }
+
+  const idByRef = new Map<string, string>();
+  let ticketNumber = startTicketNumber;
+
+  for (const ticket of epic.tickets) {
+    const key = `${projectKey}-${ticketNumber}`;
+    ticketNumber++;
+
+    const acceptanceCriteria = ticket.acceptanceCriteria.map((criterion) => ({
+      ...criterion,
+      checked: false,
+    }));
+
+    const ticketResult = await client.query<{ id: string }>(
+      `INSERT INTO tickets (
+         project_id, status_id, epic_id, key, title, type, priority,
+         story_points, acceptance_criteria, ai_dev_prompt, dependencies
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, '{}')
+       RETURNING id`,
+      [
+        projectId,
+        firstStatusId,
+        epicId,
+        key,
+        ticket.title,
+        ticket.type,
+        ticket.priority,
+        ticket.storyPoints,
+        JSON.stringify(acceptanceCriteria),
+        ticket.aiDevPrompt,
+      ],
+    );
+    const ticketId = ticketResult.rows[0]?.id;
+    if (!ticketId) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create ticket" });
+    }
+    idByRef.set(ticket.ref, ticketId);
+  }
+
+  return { idByRef, nextTicketNumber: ticketNumber };
+}
+
+/** Dependencies are only resolvable once every ticket has a real id, so this
+ *  runs as a second pass over the same transaction, after every epic/ticket
+ *  insert above has populated `idByRef`. */
+async function resolveDependencies(
+  client: PoolClient,
+  allTickets: PublishTicketPayload[],
+  idByRef: Map<string, string>,
+): Promise<void> {
+  for (const ticket of allTickets) {
+    if (ticket.dependsOn.length === 0) continue;
+    const dependencyIds = ticket.dependsOn.map((ref) => idByRef.get(ref));
+    const ticketId = idByRef.get(ticket.ref);
+    if (!ticketId || dependencyIds.some((id) => !id)) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to resolve ticket dependencies",
+      });
+    }
+    await client.query("UPDATE tickets SET dependencies = $1::uuid[] WHERE id = $2", [
+      dependencyIds,
+      ticketId,
+    ]);
+  }
+}
+
 export const backlogRouter = router({
   generateBacklog: protectedProcedure
     .input(generateBacklogInput)
@@ -176,74 +277,21 @@ export const backlogRouter = router({
         let ticketNumber = project.start_number;
 
         for (const epic of input.epics) {
-          const epicResult = await client.query<{ id: string }>(
-            `INSERT INTO epics (project_id, title, position)
-             VALUES ($1, $2, (SELECT COALESCE(MAX(position), -1) + 1 FROM epics WHERE project_id = $1))
-             RETURNING id`,
-            [input.projectId, epic.title],
+          const result = await insertEpicWithTickets(
+            client,
+            input.projectId,
+            project.key,
+            firstStatusId,
+            epic,
+            ticketNumber,
           );
-          const epicId = epicResult.rows[0]?.id;
-          if (!epicId) {
-            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create epic" });
+          for (const [ref, id] of result.idByRef) {
+            idByRef.set(ref, id);
           }
-
-          for (const ticket of epic.tickets) {
-            const key = `${project.key}-${ticketNumber}`;
-            ticketNumber++;
-
-            const acceptanceCriteria = ticket.acceptanceCriteria.map((criterion) => ({
-              ...criterion,
-              checked: false,
-            }));
-
-            const ticketResult = await client.query<{ id: string }>(
-              `INSERT INTO tickets (
-                 project_id, status_id, epic_id, key, title, type, priority,
-                 story_points, acceptance_criteria, ai_dev_prompt, dependencies
-               )
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, '{}')
-               RETURNING id`,
-              [
-                input.projectId,
-                firstStatusId,
-                epicId,
-                key,
-                ticket.title,
-                ticket.type,
-                ticket.priority,
-                ticket.storyPoints,
-                JSON.stringify(acceptanceCriteria),
-                ticket.aiDevPrompt,
-              ],
-            );
-            const ticketId = ticketResult.rows[0]?.id;
-            if (!ticketId) {
-              throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: "Failed to create ticket",
-              });
-            }
-            idByRef.set(ticket.ref, ticketId);
-          }
+          ticketNumber = result.nextTicketNumber;
         }
 
-        // Dependencies are only resolvable once every ticket has a real id,
-        // so they are backfilled in a second pass over the same transaction.
-        for (const ticket of allTickets) {
-          if (ticket.dependsOn.length === 0) continue;
-          const dependencyIds = ticket.dependsOn.map((ref) => idByRef.get(ref));
-          const ticketId = idByRef.get(ticket.ref);
-          if (!ticketId || dependencyIds.some((id) => !id)) {
-            throw new TRPCError({
-              code: "INTERNAL_SERVER_ERROR",
-              message: "Failed to resolve ticket dependencies",
-            });
-          }
-          await client.query("UPDATE tickets SET dependencies = $1::uuid[] WHERE id = $2", [
-            dependencyIds,
-            ticketId,
-          ]);
-        }
+        await resolveDependencies(client, allTickets, idByRef);
 
         await client.query("COMMIT");
         return { epicCount: input.epics.length, ticketCount };

@@ -72,15 +72,12 @@ export const backlogDraftSchema = z.object({
   epics: z.array(epicSchema).min(1).max(MAX_EPICS),
 });
 
-/**
- * Every ref must be unique across the whole backlog (not just within its
- * epic) and every dependsOn must point at a ref that actually exists and is
- * not the ticket itself — otherwise publishBacklogToBoard would have nothing
- * to resolve the dependency against.
- */
-export function validateBacklogReferences(payload: z.infer<typeof backlogDraftSchema>): void {
+type BacklogEpicPayload = z.infer<typeof backlogDraftSchema>["epics"][number];
+type BacklogTicketPayload = BacklogEpicPayload["tickets"][number];
+
+function collectTicketRefs(epics: BacklogEpicPayload[]): Set<string> {
   const allRefs = new Set<string>();
-  for (const epic of payload.epics) {
+  for (const epic of epics) {
     for (const ticket of epic.tickets) {
       if (allRefs.has(ticket.ref)) {
         throw new AiResponseError(`DeepSeek returned duplicate ticket reference "${ticket.ref}"`);
@@ -88,18 +85,31 @@ export function validateBacklogReferences(payload: z.infer<typeof backlogDraftSc
       allRefs.add(ticket.ref);
     }
   }
+  return allRefs;
+}
+
+function validateDependsOn(ticket: BacklogTicketPayload, allRefs: Set<string>): void {
+  for (const dep of ticket.dependsOn) {
+    if (dep === ticket.ref) {
+      throw new AiResponseError(`Ticket "${ticket.ref}" cannot depend on itself`);
+    }
+    if (!allRefs.has(dep)) {
+      throw new AiResponseError(`Ticket "${ticket.ref}" depends on unknown reference "${dep}"`);
+    }
+  }
+}
+
+/**
+ * Every ref must be unique across the whole backlog (not just within its
+ * epic) and every dependsOn must point at a ref that actually exists and is
+ * not the ticket itself — otherwise publishBacklogToBoard would have nothing
+ * to resolve the dependency against.
+ */
+export function validateBacklogReferences(payload: z.infer<typeof backlogDraftSchema>): void {
+  const allRefs = collectTicketRefs(payload.epics);
   for (const epic of payload.epics) {
     for (const ticket of epic.tickets) {
-      for (const dep of ticket.dependsOn) {
-        if (dep === ticket.ref) {
-          throw new AiResponseError(`Ticket "${ticket.ref}" cannot depend on itself`);
-        }
-        if (!allRefs.has(dep)) {
-          throw new AiResponseError(
-            `Ticket "${ticket.ref}" depends on unknown reference "${dep}"`,
-          );
-        }
-      }
+      validateDependsOn(ticket, allRefs);
     }
   }
 }

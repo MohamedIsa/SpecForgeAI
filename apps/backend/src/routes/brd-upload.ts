@@ -250,6 +250,93 @@ function readProjectId(request: FastifyRequest): string | null {
   return value;
 }
 
+interface UploadRejection {
+  code: number;
+  error: string;
+}
+
+type UploadAuthorization =
+  | { ok: true; userId: string; projectId: string }
+  | { ok: false; rejection: UploadRejection };
+
+/** Runs every guard before a single byte of the multipart body is read:
+ *  authentication, a valid projectId, membership, and edit permission. */
+async function authorizeUpload(request: FastifyRequest): Promise<UploadAuthorization> {
+  const userId = verifyBearerToken(request.headers.authorization);
+  if (!userId) {
+    return { ok: false, rejection: { code: 401, error: "Authentication required" } };
+  }
+
+  const projectId = readProjectId(request);
+  if (!projectId) {
+    return {
+      ok: false,
+      rejection: { code: 400, error: "A valid projectId query parameter is required" },
+    };
+  }
+
+  const role = await getMembershipRole(projectId, userId);
+  if (!role) {
+    return { ok: false, rejection: { code: 403, error: "You are not a member of this project" } };
+  }
+  if (!canEditProject(role)) {
+    return {
+      ok: false,
+      rejection: { code: 403, error: "You do not have permission to upload files to this project" },
+    };
+  }
+
+  return { ok: true, userId, projectId };
+}
+
+/** Maps an error thrown while draining/scanning the multipart body onto a
+ *  response. Rethrows anything it doesn't recognize so the caller's
+ *  try/catch still surfaces unexpected failures as a 500. */
+function classifyUploadError(
+  error: unknown,
+  results: UploadedFileResult[],
+): { code: number; body: UploadResponseBody } {
+  if (error instanceof ClamAvUnavailableError || error instanceof ClamAvProtocolError) {
+    return {
+      code: 503,
+      body: { files: results, error: "Virus scanning is unavailable, please retry" },
+    };
+  }
+  if (error instanceof MultipartStallError) {
+    return { code: 400, body: { files: results, error: MALFORMED_UPLOAD_MESSAGE } };
+  }
+  throw error;
+}
+
+/** Classifies the finished batch of per-file scan results into the overall
+ *  HTTP response, once every part has been drained. */
+function buildUploadResponse(results: UploadedFileResult[]): {
+  code: number;
+  body: UploadResponseBody;
+} {
+  if (results.length === 0) {
+    return { code: 400, body: { files: [], error: "No files were provided" } };
+  }
+
+  const infected = results.find((result) => result.status === "infected");
+  if (infected) {
+    return { code: 400, body: { files: results, error: MALWARE_REJECTION_MESSAGE } };
+  }
+
+  const rejected = results.find((result) => result.status === "rejected");
+  if (rejected) {
+    return {
+      code: 400,
+      body: {
+        files: results,
+        error: rejected.status === "rejected" ? rejected.reason : "Upload rejected",
+      },
+    };
+  }
+
+  return { code: 201, body: { files: results } };
+}
+
 export interface RegisterBrdUploadRouteOptions {
   /** Injectable purely so tests can exercise the stall path without a real 30s wait. */
   multipartTimeoutMs?: number;
@@ -277,27 +364,12 @@ export async function registerBrdUploadRoute(
       },
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<UploadResponseBody> => {
-      const userId = verifyBearerToken(request.headers.authorization);
-      if (!userId) {
-        void reply.code(401);
-        return { files: [], error: "Authentication required" };
+      const auth = await authorizeUpload(request);
+      if (!auth.ok) {
+        void reply.code(auth.rejection.code);
+        return { files: [], error: auth.rejection.error };
       }
-
-      const projectId = readProjectId(request);
-      if (!projectId) {
-        void reply.code(400);
-        return { files: [], error: "A valid projectId query parameter is required" };
-      }
-
-      const role = await getMembershipRole(projectId, userId);
-      if (!role) {
-        void reply.code(403);
-        return { files: [], error: "You are not a member of this project" };
-      }
-      if (!canEditProject(role)) {
-        void reply.code(403);
-        return { files: [], error: "You do not have permission to upload files to this project" };
-      }
+      const { userId, projectId } = auth;
 
       if (!request.isMultipart()) {
         void reply.code(400);
@@ -316,10 +388,6 @@ export async function registerBrdUploadRoute(
           multipartTimeoutMs,
         );
       } catch (error) {
-        if (error instanceof ClamAvUnavailableError || error instanceof ClamAvProtocolError) {
-          void reply.code(503);
-          return { files: results, error: "Virus scanning is unavailable, please retry" };
-        }
         if (error instanceof MultipartStallError) {
           // The parser is stuck waiting on bytes that will never arrive, so
           // the connection is unusable and must eventually be torn down —
@@ -330,35 +398,15 @@ export async function registerBrdUploadRoute(
           // happen: the client reads the error, then the stuck connection
           // is freed.
           reply.raw.once("finish", () => request.raw.destroy());
-          void reply.code(400);
-          return { files: results, error: MALFORMED_UPLOAD_MESSAGE };
         }
-        throw error;
+        const { code, body } = classifyUploadError(error, results);
+        void reply.code(code);
+        return body;
       }
 
-      if (results.length === 0) {
-        void reply.code(400);
-        return { files: [], error: "No files were provided" };
-      }
-
-      const hasInfected = results.some((result) => result.status === "infected");
-      const hasRejected = results.some((result) => result.status === "rejected");
-
-      if (hasInfected) {
-        void reply.code(400);
-        return { files: results, error: MALWARE_REJECTION_MESSAGE };
-      }
-      if (hasRejected) {
-        void reply.code(400);
-        const rejected = results.find((result) => result.status === "rejected");
-        return {
-          files: results,
-          error: rejected && rejected.status === "rejected" ? rejected.reason : "Upload rejected",
-        };
-      }
-
-      void reply.code(201);
-      return { files: results };
+      const { code, body } = buildUploadResponse(results);
+      void reply.code(code);
+      return body;
     },
   );
 }

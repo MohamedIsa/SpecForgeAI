@@ -28,21 +28,57 @@ function firstFileResult(body: ServerResponseBody): ServerFileResult | null {
   return first as ServerFileResult;
 }
 
+/** JSON.parse can throw or hand back a non-object; both collapse to `{}` so
+ *  every other branch can assume a well-shaped (if empty) body. */
+function parseUploadResponseBody(rawBody: string): ServerResponseBody | null {
+  if (!rawBody) return {};
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    return typeof parsed === "object" && parsed !== null ? (parsed as ServerResponseBody) : {};
+  } catch {
+    return null;
+  }
+}
+
+/** Success-status (2xx) outcomes: the only failure mode here is the server
+ *  claiming success without actually confirming a clean file. */
+function interpretSuccessStatus(file: ServerFileResult | null): UploadOutcome {
+  if (file?.status === "clean" && typeof file.id === "string") {
+    return { status: "clean", id: file.id };
+  }
+  return { status: "error", message: "The server did not confirm the upload" };
+}
+
+/** Failure-status outcomes, in priority order: a per-file rejection reason
+ *  beats the generic per-status-code message. */
+function interpretFailureStatus(
+  statusCode: number,
+  file: ServerFileResult | null,
+  serverError: string | null,
+): UploadOutcome {
+  if (file?.status === "rejected" && typeof file.reason === "string") {
+    return { status: "rejected", message: file.reason };
+  }
+  if (statusCode === 401) {
+    return { status: "error", message: serverError ?? "Your session expired, please sign in again" };
+  }
+  if (statusCode === 403) {
+    return { status: "rejected", message: serverError ?? "You cannot upload to this project" };
+  }
+  if (statusCode === 503) {
+    return { status: "error", message: serverError ?? "Virus scanning is unavailable, please retry" };
+  }
+  return { status: "error", message: serverError ?? "Upload failed" };
+}
+
 /**
  * Maps an upload HTTP response onto a UI outcome. Kept pure and separate from
  * the XHR plumbing so every branch is directly unit-testable.
  */
 export function interpretUploadResponse(statusCode: number, rawBody: string): UploadOutcome {
-  let body: ServerResponseBody = {};
-  if (rawBody) {
-    try {
-      const parsed: unknown = JSON.parse(rawBody);
-      if (typeof parsed === "object" && parsed !== null) {
-        body = parsed as ServerResponseBody;
-      }
-    } catch {
-      return { status: "error", message: "The server returned an unreadable response" };
-    }
+  const body = parseUploadResponseBody(rawBody);
+  if (body === null) {
+    return { status: "error", message: "The server returned an unreadable response" };
   }
 
   const file = firstFileResult(body);
@@ -57,27 +93,10 @@ export function interpretUploadResponse(statusCode: number, rawBody: string): Up
   }
 
   if (statusCode >= 200 && statusCode < 300) {
-    if (file?.status === "clean" && typeof file.id === "string") {
-      return { status: "clean", id: file.id };
-    }
-    return { status: "error", message: "The server did not confirm the upload" };
+    return interpretSuccessStatus(file);
   }
 
-  if (file?.status === "rejected" && typeof file.reason === "string") {
-    return { status: "rejected", message: file.reason };
-  }
-
-  if (statusCode === 401) {
-    return { status: "error", message: serverError ?? "Your session expired, please sign in again" };
-  }
-  if (statusCode === 403) {
-    return { status: "rejected", message: serverError ?? "You cannot upload to this project" };
-  }
-  if (statusCode === 503) {
-    return { status: "error", message: serverError ?? "Virus scanning is unavailable, please retry" };
-  }
-
-  return { status: "error", message: serverError ?? "Upload failed" };
+  return interpretFailureStatus(statusCode, file, serverError);
 }
 
 /**

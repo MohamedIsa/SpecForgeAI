@@ -13,6 +13,43 @@ import { IngestPage } from "./pages/ingest/IngestPage.tsx";
 import { ClarifyPage } from "./pages/clarify/ClarifyPage.tsx";
 import { BacklogReviewPage } from "./pages/backlog/BacklogReviewPage.tsx";
 
+interface ActiveViewProps {
+  view: SidebarView;
+  autoStartBacklog: boolean;
+  onAutoStartConsumed: () => void;
+  onNavigateToClarify: () => void;
+  onBacklogReady: () => void;
+  onPublished: (message: string) => void;
+}
+
+function ActiveView({
+  view,
+  autoStartBacklog,
+  onAutoStartConsumed,
+  onNavigateToClarify,
+  onBacklogReady,
+  onPublished,
+}: ActiveViewProps) {
+  if (view === "ingest") {
+    return <IngestPage onNavigateToClarify={onNavigateToClarify} />;
+  }
+  if (view === "clarify") {
+    return <ClarifyPage onBacklogReady={onBacklogReady} />;
+  }
+  if (view === "backlog") {
+    // The spec's "TanStack Router navigation to /board": this app has no
+    // URL router, so publishing moves the view state to the board instead.
+    return (
+      <BacklogReviewPage
+        autoStart={autoStartBacklog}
+        onAutoStartConsumed={onAutoStartConsumed}
+        onPublished={onPublished}
+      />
+    );
+  }
+  return <BoardPage />;
+}
+
 export function App() {
   trpc.health.useQuery();
   const { session, isHydrating } = useAuth();
@@ -66,31 +103,20 @@ export function App() {
 
   return (
     <Layout activeView={view} onNavigate={handleNavigate} unlocked={unlocked}>
-      {view === "board" ? (
-        <BoardPage />
-      ) : view === "ingest" ? (
-        <IngestPage onNavigateToClarify={() => handleNavigate("clarify")} />
-      ) : view === "clarify" ? (
-        <ClarifyPage
-          onBacklogReady={() => {
-            setAutoStartBacklog(true);
-            handleNavigate("backlog");
-          }}
-        />
-      ) : view === "backlog" ? (
-        // The spec's "TanStack Router navigation to /board": this app has no
-        // URL router, so publishing moves the view state to the board instead.
-        <BacklogReviewPage
-          autoStart={autoStartBacklog}
-          onAutoStartConsumed={() => setAutoStartBacklog(false)}
-          onPublished={(message) => {
-            setGlobalToast(message);
-            setView("board");
-          }}
-        />
-      ) : (
-        <BoardPage />
-      )}
+      <ActiveView
+        view={view}
+        autoStartBacklog={autoStartBacklog}
+        onAutoStartConsumed={() => setAutoStartBacklog(false)}
+        onNavigateToClarify={() => handleNavigate("clarify")}
+        onBacklogReady={() => {
+          setAutoStartBacklog(true);
+          handleNavigate("backlog");
+        }}
+        onPublished={(message) => {
+          setGlobalToast(message);
+          setView("board");
+        }}
+      />
       {globalToast && (
         <SuccessToast message={globalToast} onDismiss={() => setGlobalToast(null)} />
       )}
