@@ -98,14 +98,18 @@ describe("ClarificationChat — messages", () => {
   });
 });
 
-describe("ClarificationChat — typing indicator", () => {
-  it("shows the spec'd analyzing text while thinking", () => {
+describe("ClarificationChat — typing indicator & sfBounce animation", () => {
+  it("shows the spec'd analyzing text and sfBounce animated dots while thinking", () => {
     render(
       <ClarificationChat session={makeSession()} isThinking onAnswer={vi.fn()} canAnswer />,
     );
-    expect(screen.getByTestId("typing-indicator")).toBeInTheDocument();
+    const indicator = screen.getByTestId("typing-indicator");
+    expect(indicator).toBeInTheDocument();
     expect(screen.getByText(TYPING_INDICATOR_TEXT)).toBeInTheDocument();
     expect(TYPING_INDICATOR_TEXT).toBe("SpecForge AI is analyzing specification...");
+
+    const bounceDots = indicator.querySelectorAll(".animate-sf-bounce");
+    expect(bounceDots.length).toBe(3);
   });
 
   it("hides the indicator when not thinking", () => {
@@ -121,18 +125,69 @@ describe("ClarificationChat — typing indicator", () => {
   });
 });
 
-describe("ClarificationChat — quick reply chips", () => {
-  it("renders a chip per quick reply of the open question", () => {
+describe("ClarificationChat — turn-by-turn quick reply chips", () => {
+  it("renders quick reply chips only on the active question bubble", () => {
+    const session = makeSession({
+      questions: [
+        makeQuestion({ id: "q1", prompt: "Which auth method?", quickReplies: ["SSO", "Password"], resolved: false }),
+      ],
+      messages: [
+        makeMessage({ id: "m1", questionId: "q1", content: "Which auth method?" }),
+      ],
+    });
     render(
-      <ClarificationChat session={makeSession()} isThinking={false} onAnswer={vi.fn()} canAnswer />,
+      <ClarificationChat session={session} isThinking={false} onAnswer={vi.fn()} canAnswer />,
     );
     const chips = screen.getAllByTestId("quick-reply-chip");
-    expect(chips.map((chip) => chip.textContent)).toEqual(["Email + password", "SSO"]);
+    expect(chips.map((chip) => chip.textContent)).toEqual(["SSO", "Password"]);
     expect(chips[0]?.className).toContain("bg-chip-bg");
     expect(chips[0]?.className).toContain("text-chip-text");
   });
 
-  it("submits the chip text as the answer when clicked", () => {
+  it("renders previous answered questions in history above WITHOUT chips, while active question renders chips", () => {
+    const q1 = makeQuestion({
+      id: "q1",
+      prompt: "First question?",
+      quickReplies: ["Option A", "Option B"],
+      answer: "Option A",
+      resolved: true,
+    });
+    const q2 = makeQuestion({
+      id: "q2",
+      position: 1,
+      prompt: "Second question?",
+      quickReplies: ["Option C", "Option D"],
+      answer: null,
+      resolved: false,
+    });
+
+    const session = makeSession({
+      questions: [q1, q2],
+      messages: [
+        makeMessage({ id: "m1", questionId: "q1", content: "First question?", role: "ai" }),
+        makeMessage({ id: "m2", questionId: "q1", content: "Option A", role: "user" }),
+        makeMessage({ id: "m3", questionId: "q2", content: "Noted. Second question?", role: "ai" }),
+      ],
+    });
+
+    render(
+      <ClarificationChat session={session} isThinking={false} onAnswer={vi.fn()} canAnswer />,
+    );
+
+    // Both AI messages and the user message remain visible in chat history
+    const aiMessages = screen.getAllByTestId("ai-message");
+    expect(aiMessages).toHaveLength(2);
+    expect(aiMessages[0]?.textContent).toBe("First question?");
+    expect(aiMessages[1]?.textContent).toBe("Noted. Second question?");
+    expect(screen.getByTestId("user-message")).toHaveTextContent("Option A");
+
+    // Only the single active question bubble (q2) has quick reply chips (Option C, Option D)
+    const chips = screen.getAllByTestId("quick-reply-chip");
+    expect(chips.map((chip) => chip.textContent)).toEqual(["Option C", "Option D"]);
+    expect(screen.queryByText("Option B")).not.toBeInTheDocument();
+  });
+
+  it("submits the chip text as the answer for the active question when clicked", () => {
     const onAnswer = vi.fn();
     render(
       <ClarificationChat session={makeSession()} isThinking={false} onAnswer={onAnswer} canAnswer />,
@@ -156,7 +211,7 @@ describe("ClarificationChat — quick reply chips", () => {
     expect(screen.queryByTestId("quick-reply-chip")).not.toBeInTheDocument();
   });
 
-  it("omits chips for a question that has none", () => {
+  it("omits chips for an active question that has none", () => {
     const questions = [makeQuestion({ quickReplies: [] })];
     render(
       <ClarificationChat
@@ -170,8 +225,8 @@ describe("ClarificationChat — quick reply chips", () => {
   });
 });
 
-describe("ClarificationChat — composer", () => {
-  it("submits a typed answer for the open question", () => {
+describe("ClarificationChat — composer & state progression", () => {
+  it("submits a typed answer for the active open question", () => {
     const onAnswer = vi.fn();
     render(
       <ClarificationChat session={makeSession()} isThinking={false} onAnswer={onAnswer} canAnswer />,

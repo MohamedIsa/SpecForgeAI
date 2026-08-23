@@ -440,11 +440,13 @@ async function insertSessionWithQuestions(
         });
       }
 
-      await client.query(
-        `INSERT INTO clarification_messages (session_id, question_id, role, content)
-         VALUES ($1, $2, 'ai', $3)`,
-        [sessionRow.id, questionId, draft.prompt],
-      );
+      if (position === 0) {
+        await client.query(
+          `INSERT INTO clarification_messages (session_id, question_id, role, content)
+           VALUES ($1, $2, 'ai', $3)`,
+          [sessionRow.id, questionId, draft.prompt],
+        );
+      }
     }
 
     await client.query("COMMIT");

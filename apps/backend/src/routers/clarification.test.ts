@@ -131,7 +131,7 @@ async function resolveAll(userId: string, projectId: string): Promise<void> {
 }
 
 describe("clarificationRouter.startSession", () => {
-  it("creates a session with one question and AI message per ambiguity", async () => {
+  it("creates a session with all ambiguity questions for specification context and only question 1 in message history", async () => {
     const owner = await createUser("Start Owner");
     const projectId = await createProject(owner.id);
     await addBrdFile(projectId, owner.id);
@@ -145,8 +145,10 @@ describe("clarificationRouter.startSession", () => {
     expect(session.questions[0]?.quickReplies).toEqual(["Email + password", "SSO"]);
     expect(session.questions[0]?.position).toBe(0);
     expect(session.questions[1]?.position).toBe(1);
-    expect(session.messages).toHaveLength(2);
-    expect(session.messages.every((message) => message.role === "ai")).toBe(true);
+    expect(session.messages).toHaveLength(1);
+    expect(session.messages[0]?.role).toBe("ai");
+    expect(session.messages[0]?.questionId).toBe(session.questions[0]?.id);
+    expect(session.messages[0]?.content).toBe(drafts[0]?.prompt);
     expect(session.resolvedCount).toBe(0);
     expect(session.totalCount).toBe(2);
     expect(session.allResolved).toBe(false);
@@ -375,6 +377,37 @@ describe("clarificationRouter.getSessionState", () => {
     ).toBeNull();
   });
 
+  it("returns all questions for context while message history only surfaces questions asked so far", async () => {
+    const owner = await createUser("State Turn Owner");
+    const projectId = await createProject(owner.id);
+    await addBrdFile(projectId, owner.id);
+    const started = await createCaller(owner.id).clarification.startSession({ projectId });
+
+    // Initially: all 2 questions exist, only 1 message
+    const initial = await createCaller(owner.id).clarification.getSessionState({ projectId });
+    expect(initial?.questions).toHaveLength(2);
+    expect(initial?.messages).toHaveLength(1);
+    expect(initial?.messages[0]?.questionId).toBe(started.questions[0]?.id);
+
+    // After answering Question 1: all 2 questions exist (1 resolved, 1 open), 3 messages
+    const q1 = started.questions[0];
+    if (!q1) throw new Error("expected question 1");
+    await createCaller(owner.id).clarification.sendMessage({
+      projectId,
+      questionId: q1.id,
+      answer: "Email + password",
+    });
+
+    const midSession = await createCaller(owner.id).clarification.getSessionState({ projectId });
+    expect(midSession?.questions).toHaveLength(2);
+    expect(midSession?.resolvedCount).toBe(1);
+    expect(midSession?.messages).toHaveLength(3);
+    expect(midSession?.messages[0]?.role).toBe("ai");
+    expect(midSession?.messages[1]?.role).toBe("user");
+    expect(midSession?.messages[2]?.role).toBe("ai");
+    expect(midSession?.messages[2]?.questionId).toBe(started.questions[1]?.id);
+  });
+
   it("rejects a non-member with FORBIDDEN", async () => {
     const owner = await createUser("State Forbidden Owner");
     const outsider = await createUser("State Forbidden Outsider");
@@ -510,6 +543,66 @@ describe("clarificationRouter.sendMessage", () => {
     expect(state.resolvedCount).toBe(2);
     expect(state.messages.at(-1)?.content).toContain("every ambiguity is resolved");
     expect(state.messages.at(-1)?.questionId).toBeNull();
+  });
+
+  it("progresses turn-by-turn across all questions and unlocks completion", async () => {
+    const owner = await createUser("Turn Progression Owner");
+    const projectId = await createProject(owner.id);
+    await addBrdFile(projectId, owner.id);
+
+    // Turn 0: Session starts -> Question 1 asked, Specification Context has 2 open items
+    const started = await createCaller(owner.id).clarification.startSession({ projectId });
+    expect(started.messages).toHaveLength(1);
+    expect(started.messages[0]?.role).toBe("ai");
+    expect(started.messages[0]?.content).toBe(drafts[0]?.prompt);
+    expect(started.questions).toHaveLength(2);
+    expect(started.resolvedCount).toBe(0);
+    expect(started.allResolved).toBe(false);
+
+    // Turn 1: User answers Question 1 -> Question 2 appended
+    const q1 = started.questions[0];
+    if (!q1) throw new Error("expected question 1");
+    const turn1 = await createCaller(owner.id).clarification.sendMessage({
+      projectId,
+      questionId: q1.id,
+      answer: "SSO",
+    });
+    expect(turn1.messages).toHaveLength(3);
+    expect(turn1.messages[1]?.role).toBe("user");
+    expect(turn1.messages[1]?.content).toBe("SSO");
+    expect(turn1.messages[2]?.role).toBe("ai");
+    expect(turn1.messages[2]?.content).toContain(drafts[1]?.prompt ?? "");
+    expect(turn1.questions[0]?.resolved).toBe(true);
+    expect(turn1.questions[1]?.resolved).toBe(false);
+    expect(turn1.resolvedCount).toBe(1);
+    expect(turn1.allResolved).toBe(false);
+
+    // Complete session is gated while unresolved questions remain
+    await expect(
+      createCaller(owner.id).clarification.completeSession({ projectId }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+
+    // Turn 2: User answers Question 2 -> Final completion message appended, allResolved = true
+    const q2 = started.questions[1];
+    if (!q2) throw new Error("expected question 2");
+    const turn2 = await createCaller(owner.id).clarification.sendMessage({
+      projectId,
+      questionId: q2.id,
+      answer: "30 days",
+    });
+    expect(turn2.messages).toHaveLength(5);
+    expect(turn2.messages[3]?.role).toBe("user");
+    expect(turn2.messages[3]?.content).toBe("30 days");
+    expect(turn2.messages[4]?.role).toBe("ai");
+    expect(turn2.messages[4]?.content).toContain("every ambiguity is resolved");
+    expect(turn2.resolvedCount).toBe(2);
+    expect(turn2.allResolved).toBe(true);
+
+    // Final completion succeeds and stores compiled context
+    const completed = await createCaller(owner.id).clarification.completeSession({ projectId });
+    expect(completed.status).toBe("completed");
+    expect(completed.compiledContext).toContain("Auth method");
+    expect(completed.compiledContext).toContain("Refund window");
   });
 
   it("keeps the original resolution timestamp when an answer is revised", async () => {

@@ -39,8 +39,21 @@ interface SessionState {
   allResolved: boolean;
 }
 
-function makeSession(questions: Question[], status: "active" | "completed" = "active"): SessionState {
+function makeSession(
+  questions: Question[],
+  status: "active" | "completed" = "active",
+  messagesOverride?: SessionState["messages"],
+): SessionState {
   const resolvedCount = questions.filter((question) => question.resolved).length;
+  const messages =
+    messagesOverride ??
+    questions.map((question) => ({
+      id: `msg-${question.id}`,
+      role: "ai" as const,
+      content: question.prompt,
+      questionId: question.id,
+      createdAt: new Date().toISOString(),
+    }));
   return {
     id: "session-1",
     projectId: PROJECT_ID,
@@ -49,7 +62,7 @@ function makeSession(questions: Question[], status: "active" | "completed" = "ac
     createdAt: new Date().toISOString(),
     completedAt: null,
     questions,
-    messages: [],
+    messages,
     resolvedCount,
     totalCount: questions.length,
     allResolved: questions.length > 0 && resolvedCount === questions.length,

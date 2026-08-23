@@ -10,8 +10,48 @@ type ClarificationMessage = SessionState["messages"][number];
 
 export const TYPING_INDICATOR_TEXT = "SpecForge AI is analyzing specification...";
 
-function MessageBubble({ message }: { message: ClarificationMessage }) {
+function MessageBubble({
+  message,
+  activeQuestion,
+  canAnswer,
+  onAnswer,
+}: {
+  message: ClarificationMessage;
+  activeQuestion: ClarificationQuestion | null;
+  canAnswer: boolean;
+  onAnswer: (answer: string) => void;
+}) {
   const isAi = message.role === "ai";
+  const isActiveQuestion =
+    isAi && activeQuestion !== null && message.questionId === activeQuestion.id;
+
+  if (isActiveQuestion && activeQuestion.quickReplies.length > 0) {
+    return (
+      <li className="flex flex-col items-start gap-xs">
+        <div
+          data-testid="ai-message"
+          className="max-w-[75%] rounded-2lg px-md py-sm text-sm leading-relaxed bg-sidebar-item text-text-inverse"
+        >
+          {message.content}
+        </div>
+        <div className="flex flex-wrap gap-sm pt-xs" data-testid="quick-reply-group">
+          {activeQuestion.quickReplies.map((reply) => (
+            <button
+              key={reply}
+              type="button"
+              disabled={!canAnswer}
+              onClick={() => onAnswer(reply)}
+              data-testid="quick-reply-chip"
+              className="px-md py-1 rounded-full text-xs bg-chip-bg text-chip-text transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li className={`flex ${isAi ? "justify-start" : "justify-end"}`}>
       <div
@@ -32,10 +72,10 @@ function TypingIndicator() {
   return (
     <li className="flex justify-start" data-testid="typing-indicator">
       <div className="flex items-center gap-sm rounded-2lg bg-sidebar-item px-md py-sm">
-        <span className="flex gap-xs" aria-hidden="true">
-          <span className="size-1.5 rounded-full bg-text-secondary animate-pulse" />
-          <span className="size-1.5 rounded-full bg-text-secondary animate-pulse" />
-          <span className="size-1.5 rounded-full bg-text-secondary animate-pulse" />
+        <span className="flex gap-xs items-center" aria-hidden="true">
+          <span className="size-1.5 rounded-full bg-text-secondary animate-sf-bounce [animation-delay:-0.32s]" />
+          <span className="size-1.5 rounded-full bg-text-secondary animate-sf-bounce [animation-delay:-0.16s]" />
+          <span className="size-1.5 rounded-full bg-text-secondary animate-sf-bounce" />
         </span>
         <span className="text-xs text-text-secondary">{TYPING_INDICATOR_TEXT}</span>
       </div>
@@ -88,27 +128,16 @@ export function ClarificationChat({
           </li>
         )}
         {session?.messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            activeQuestion={openQuestion}
+            canAnswer={canAnswer}
+            onAnswer={submitAnswer}
+          />
         ))}
         {isThinking && <TypingIndicator />}
       </ul>
-
-      {openQuestion && openQuestion.quickReplies.length > 0 && (
-        <div className="flex flex-wrap gap-sm px-lg pb-sm shrink-0">
-          {openQuestion.quickReplies.map((reply) => (
-            <button
-              key={reply}
-              type="button"
-              disabled={!canAnswer}
-              onClick={() => submitAnswer(reply)}
-              data-testid="quick-reply-chip"
-              className="px-md py-1 rounded-full text-xs bg-chip-bg text-chip-text transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {reply}
-            </button>
-          ))}
-        </div>
-      )}
 
       <form
         onSubmit={handleSubmit}
