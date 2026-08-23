@@ -27,7 +27,7 @@ function makeTicket(overrides: Record<string, unknown> = {}) {
       {
         given: "a user",
         when: "they submit valid credentials",
-        then: "they are logged in",
+        expectedResult: "they are logged in",
         checked: false,
       },
     ],

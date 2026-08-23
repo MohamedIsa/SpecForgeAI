@@ -42,7 +42,7 @@ function ticket(overrides: Partial<GeneratedTicketDraft> = {}): GeneratedTicketD
     type: "story",
     priority: "P1",
     storyPoints: 3,
-    acceptanceCriteria: [{ given: "a visitor", when: "they submit valid credentials", then: "they are logged in" }],
+    acceptanceCriteria: [{ given: "a visitor", when: "they submit valid credentials", expectedResult: "they are logged in" }],
     aiDevPrompt: "Implement a login form with email and password fields.",
     dependsOn: [],
     ...overrides,

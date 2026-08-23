@@ -68,7 +68,7 @@ function BacklogTicketCard({ ticket }: { ticket: BacklogTicket }) {
           <li key={index} className="text-xs text-text-secondary">
             <span className="text-chip-text font-semibold">Given</span> {criterion.given},{" "}
             <span className="text-chip-text font-semibold">when</span> {criterion.when},{" "}
-            <span className="text-chip-text font-semibold">then</span> {criterion.then}
+            <span className="text-chip-text font-semibold">then</span> {criterion.expectedResult}
           </li>
         ))}
       </ul>

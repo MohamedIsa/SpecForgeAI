@@ -27,7 +27,7 @@ interface Ticket {
   type: "story" | "bug" | "task";
   priority: "P0" | "P1" | "P2" | "P3";
   storyPoints: number;
-  acceptanceCriteria: Array<{ given: string; when: string; then: string }>;
+  acceptanceCriteria: Array<{ given: string; when: string; expectedResult: string }>;
   aiDevPrompt: string;
   dependsOn: string[];
   dependsOnPreviewKeys: string[];
@@ -47,7 +47,7 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     priority: "P1",
     storyPoints: 3,
     acceptanceCriteria: [
-      { given: "a visitor", when: "they submit valid credentials", then: "they are logged in" },
+      { given: "a visitor", when: "they submit valid credentials", expectedResult: "they are logged in" },
     ],
     aiDevPrompt: "Implement a login form.",
     dependsOn: [],

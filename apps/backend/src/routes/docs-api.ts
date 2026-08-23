@@ -147,7 +147,7 @@ const schemas: Array<{ $id: string } & Record<string, unknown>> = [
     properties: {
       given: { type: "string" },
       when: { type: "string" },
-      then: { type: "string" },
+      expectedResult: { type: "string" },
       checked: { type: "boolean" },
     },
   },
@@ -309,7 +309,7 @@ const schemas: Array<{ $id: string } & Record<string, unknown>> = [
     properties: {
       given: { type: "string" },
       when: { type: "string" },
-      then: { type: "string" },
+      expectedResult: { type: "string" },
     },
   },
   {
@@ -365,22 +365,22 @@ const schemas: Array<{ $id: string } & Record<string, unknown>> = [
 
 const acceptanceCriterionBodySchema = {
   type: "object",
-  required: ["given", "when", "then", "checked"],
+  required: ["given", "when", "expectedResult", "checked"],
   properties: {
     given: { type: "string", minLength: 1, maxLength: 500 },
     when: { type: "string", minLength: 1, maxLength: 500 },
-    then: { type: "string", minLength: 1, maxLength: 500 },
+    expectedResult: { type: "string", minLength: 1, maxLength: 500 },
     checked: { type: "boolean" },
   },
 } as const;
 
 const publishAcceptanceCriterionBodySchema = {
   type: "object",
-  required: ["given", "when", "then"],
+  required: ["given", "when", "expectedResult"],
   properties: {
     given: { type: "string", minLength: 1, maxLength: 500 },
     when: { type: "string", minLength: 1, maxLength: 500 },
-    then: { type: "string", minLength: 1, maxLength: 500 },
+    expectedResult: { type: "string", minLength: 1, maxLength: 500 },
   },
 } as const;
 
@@ -485,7 +485,7 @@ interface ReorderStatusesBody {
 interface AcceptanceCriterionBody {
   given: string;
   when: string;
-  then: string;
+  expectedResult: string;
   checked: boolean;
 }
 
@@ -529,7 +529,7 @@ interface SendClarificationMessageBody {
 interface PublishGeneratedAcceptanceCriterion {
   given: string;
   when: string;
-  then: string;
+  expectedResult: string;
 }
 
 interface PublishGeneratedTicket {

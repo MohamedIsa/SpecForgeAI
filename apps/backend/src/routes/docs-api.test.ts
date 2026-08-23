@@ -541,7 +541,7 @@ describe("DEV-TEMP-T1 expanded REST documentation surface", () => {
                 priority: "P1",
                 storyPoints: 5,
                 acceptanceCriteria: [
-                  { given: "a checkout", when: "the user pays", then: "a charge is created" },
+                  { given: "a checkout", when: "the user pays", expectedResult: "a charge is created" },
                 ],
                 aiDevPrompt: "Wire up the Stripe SDK.",
                 dependsOn: [],

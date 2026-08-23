@@ -16,7 +16,7 @@ export type TicketPriority = "P0" | "P1" | "P2" | "P3";
 export interface AcceptanceCriterion {
   given: string;
   when: string;
-  then: string;
+  expectedResult: string;
   checked: boolean;
 }
 
@@ -121,7 +121,7 @@ function isAcceptanceCriteria(value: unknown): value is AcceptanceCriterion[] {
         item !== null &&
         typeof (item as { given?: unknown }).given === "string" &&
         typeof (item as { when?: unknown }).when === "string" &&
-        typeof (item as { then?: unknown }).then === "string" &&
+        typeof (item as { expectedResult?: unknown }).expectedResult === "string" &&
         typeof (item as { checked?: unknown }).checked === "boolean",
     )
   );

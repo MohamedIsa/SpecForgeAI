@@ -62,7 +62,7 @@ export const deleteStatusInput = z.object({
 const acceptanceCriterionSchema = z.object({
   given: z.string().trim().min(1, "Given is required").max(500),
   when: z.string().trim().min(1, "When is required").max(500),
-  then: z.string().trim().min(1, "Then is required").max(500),
+  expectedResult: z.string().trim().min(1, "Expected result is required").max(500),
   checked: z.boolean(),
 });
 

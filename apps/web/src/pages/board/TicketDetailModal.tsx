@@ -13,7 +13,7 @@ type TicketType = TicketDetails["type"];
 interface LocalCriterion {
   given: string;
   when: string;
-  then: string;
+  expectedResult: string;
   checked: boolean;
 }
 
@@ -233,7 +233,7 @@ export function TicketDetailModal({
                           : "text-text-inverse"
                       }`}
                     >
-                      Given {criterion.given}, when {criterion.when}, then {criterion.then}
+                      Given {criterion.given}, when {criterion.when}, then {criterion.expectedResult}
                     </span>
                   </li>
                 ))}

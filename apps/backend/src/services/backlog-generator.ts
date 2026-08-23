@@ -16,7 +16,7 @@ export const MAX_TICKETS_PER_EPIC = 20;
 export interface GeneratedAcceptanceCriterion {
   given: string;
   when: string;
-  then: string;
+  expectedResult: string;
 }
 
 export interface GeneratedTicketDraft {
@@ -44,7 +44,7 @@ export interface BacklogDraft {
 const acceptanceCriterionSchema = z.object({
   given: z.string().trim().min(1).max(500),
   when: z.string().trim().min(1).max(500),
-  then: z.string().trim().min(1).max(500),
+  expectedResult: z.string().trim().min(1).max(500),
 });
 
 const ticketSchema = z.object({
@@ -127,7 +127,7 @@ const SYSTEM_PROMPT = [
   "Respond with JSON only, matching exactly:",
   '{"epics":[{"title":"epic title","tickets":[{"ref":"T1","title":"ticket title",',
   '"type":"story|bug|task","priority":"P0|P1|P2|P3","storyPoints":1,',
-  '"acceptanceCriteria":[{"given":"...","when":"...","then":"..."}],',
+  '"acceptanceCriteria":[{"given":"...","when":"...","expectedResult":"..."}],',
   '"aiDevPrompt":"...","dependsOn":["T2"]}]}]}',
   `Return between 1 and ${MAX_EPICS} epics, each with between 1 and ${MAX_TICKETS_PER_EPIC} tickets.`,
   "storyPoints must be a whole number using the Fibonacci-like scale 1, 2, 3, 5, 8, 13, 21.",

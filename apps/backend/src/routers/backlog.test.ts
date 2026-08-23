@@ -101,7 +101,7 @@ const draft: BacklogDraft = {
           priority: "P1",
           storyPoints: 3,
           acceptanceCriteria: [
-            { given: "a visitor", when: "they submit valid credentials", then: "they are logged in" },
+            { given: "a visitor", when: "they submit valid credentials", expectedResult: "they are logged in" },
           ],
           aiDevPrompt: "Implement a login form with email and password fields.",
           dependsOn: [],
@@ -113,7 +113,7 @@ const draft: BacklogDraft = {
           priority: "P2",
           storyPoints: 5,
           acceptanceCriteria: [
-            { given: "a user forgot their password", when: "they request a reset", then: "they receive an email" },
+            { given: "a user forgot their password", when: "they request a reset", expectedResult: "they receive an email" },
           ],
           aiDevPrompt: "Implement a password reset flow triggered by email.",
           dependsOn: ["T1"],
