@@ -109,7 +109,7 @@ describe("ClarificationChat — typing indicator & sfBounce animation", () => {
     expect(TYPING_INDICATOR_TEXT).toBe("SpecForge AI is analyzing specification...");
 
     const bounceDots = indicator.querySelectorAll(".animate-sf-bounce");
-    expect(bounceDots.length).toBe(3);
+    expect(bounceDots).toHaveLength(3);
   });
 
   it("hides the indicator when not thinking", () => {

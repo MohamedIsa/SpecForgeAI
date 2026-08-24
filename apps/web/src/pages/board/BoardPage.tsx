@@ -171,8 +171,9 @@ export function BoardPage() {
 
                 <div className="flex-1 flex flex-col gap-sm p-sm overflow-y-auto">
                   {columnTickets.map((ticket) => (
-                    <div
+                    <button
                       key={ticket.id}
+                      type="button"
                       draggable
                       onDragStart={() => setDraggedTicketId(ticket.id)}
                       onClick={() => setSelectedTicketId(ticket.id)}
@@ -182,12 +183,10 @@ export function BoardPage() {
                           setSelectedTicketId(ticket.id);
                         }
                       }}
-                      role="button"
-                      tabIndex={0}
-                      className="cursor-grab"
+                      className="w-full text-left cursor-grab"
                     >
                       <TicketCard ticket={toTicketCardData(ticket)} />
-                    </div>
+                    </button>
                   ))}
                 </div>
 

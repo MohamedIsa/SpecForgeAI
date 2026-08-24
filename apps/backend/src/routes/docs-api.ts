@@ -4,6 +4,7 @@ import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { appRouter } from "../router";
 import type { Context } from "../router";
 import { verifyBearerToken } from "../lib/jwt";
+import type { TicketType, TicketPriority } from "../routers/ticket";
 
 /**
  *
@@ -493,8 +494,8 @@ interface CreateTicketBody {
   statusId: string;
   title: string;
   description?: string;
-  type: "story" | "bug" | "task";
-  priority: "P0" | "P1" | "P2" | "P3";
+  type: TicketType;
+  priority: TicketPriority;
   storyPoints?: number;
   assigneeId?: string;
   acceptanceCriteria?: AcceptanceCriterionBody[];
@@ -509,7 +510,7 @@ interface UpdateTicketStatusBody {
 interface UpdateTicketBody {
   title?: string;
   description?: string | null;
-  priority?: "P0" | "P1" | "P2" | "P3";
+  priority?: TicketPriority;
   storyPoints?: number | null;
   assigneeId?: string | null;
 }
@@ -535,8 +536,8 @@ interface PublishGeneratedAcceptanceCriterion {
 interface PublishGeneratedTicket {
   ref: string;
   title: string;
-  type: "story" | "bug" | "task";
-  priority: "P0" | "P1" | "P2" | "P3";
+  type: TicketType;
+  priority: TicketPriority;
   storyPoints: number;
   acceptanceCriteria: PublishGeneratedAcceptanceCriterion[];
   aiDevPrompt: string;

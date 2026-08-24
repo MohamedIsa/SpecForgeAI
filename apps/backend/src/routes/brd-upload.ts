@@ -317,8 +317,8 @@ function buildUploadResponse(results: UploadedFileResult[]): {
     return { code: 400, body: { files: [], error: "No files were provided" } };
   }
 
-  const infected = results.find((result) => result.status === "infected");
-  if (infected) {
+  const hasInfected = results.some((result) => result.status === "infected");
+  if (hasInfected) {
     return { code: 400, body: { files: results, error: MALWARE_REJECTION_MESSAGE } };
   }
 

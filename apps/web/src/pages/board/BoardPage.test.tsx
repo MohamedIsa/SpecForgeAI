@@ -238,7 +238,7 @@ describe("BoardPage", () => {
       renderBoard();
       const card = screen.getByText("SPEC-101").closest('[draggable="true"]');
       if (!card) throw new Error("expected the ticket card container to exist");
-      expect(card).toHaveAttribute("tabIndex", "0");
+      expect(card.tagName).toBe("BUTTON");
       fireEvent.keyDown(card, { key });
       expect(screen.getByLabelText("Close ticket detail")).toBeInTheDocument();
     },

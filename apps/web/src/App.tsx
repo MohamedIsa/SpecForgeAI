@@ -14,12 +14,12 @@ import { ClarifyPage } from "./pages/clarify/ClarifyPage.tsx";
 import { BacklogReviewPage } from "./pages/backlog/BacklogReviewPage.tsx";
 
 interface ActiveViewProps {
-  view: SidebarView;
-  autoStartBacklog: boolean;
-  onAutoStartConsumed: () => void;
-  onNavigateToClarify: () => void;
-  onBacklogReady: () => void;
-  onPublished: (message: string) => void;
+  readonly view: SidebarView;
+  readonly autoStartBacklog: boolean;
+  readonly onAutoStartConsumed: () => void;
+  readonly onNavigateToClarify: () => void;
+  readonly onBacklogReady: () => void;
+  readonly onPublished: (message: string) => void;
 }
 
 function ActiveView({

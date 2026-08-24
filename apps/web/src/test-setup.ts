@@ -15,6 +15,6 @@ class ResizeObserverStub {
   }
 }
 
-if (typeof globalThis.ResizeObserver === "undefined") {
+if (globalThis.ResizeObserver === undefined) {
   globalThis.ResizeObserver = ResizeObserverStub;
 }
