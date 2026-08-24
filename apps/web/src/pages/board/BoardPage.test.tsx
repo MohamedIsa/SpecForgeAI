@@ -232,6 +232,18 @@ describe("BoardPage", () => {
     expect(screen.getByLabelText("Close ticket detail")).toBeInTheDocument();
   });
 
+  it.each(["Enter", " "])(
+    "opens the Ticket Detail modal via keyboard when %j is pressed on a focused card",
+    (key) => {
+      renderBoard();
+      const card = screen.getByText("SPEC-101").closest('[draggable="true"]');
+      if (!card) throw new Error("expected the ticket card container to exist");
+      expect(card).toHaveAttribute("tabIndex", "0");
+      fireEvent.keyDown(card, { key });
+      expect(screen.getByLabelText("Close ticket detail")).toBeInTheDocument();
+    },
+  );
+
   it("moves a ticket to another column via drag-and-drop", () => {
     const { container } = renderBoard();
     const card = screen.getByText("SPEC-101").closest('[draggable="true"]');

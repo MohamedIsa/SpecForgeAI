@@ -19,10 +19,7 @@ export function ErrorToast({ message, onDismiss }: { message: string; onDismiss:
 
 export function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   return (
-    <div
-      role="status"
-      className="fixed top-md left-1/2 -translate-x-1/2 z-50 flex items-center gap-sm rounded-md border border-success bg-modal-bg px-md py-sm text-sm text-text-inverse shadow-lg"
-    >
+    <output className="fixed top-md left-1/2 -translate-x-1/2 z-50 flex items-center gap-sm rounded-md border border-success bg-modal-bg px-md py-sm text-sm text-text-inverse shadow-lg">
       <span>{message}</span>
       <button
         type="button"
@@ -32,6 +29,6 @@ export function SuccessToast({ message, onDismiss }: { message: string; onDismis
       >
         &times;
       </button>
-    </div>
+    </output>
   );
 }

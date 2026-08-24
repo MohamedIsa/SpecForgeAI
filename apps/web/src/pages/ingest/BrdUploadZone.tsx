@@ -88,15 +88,15 @@ function UploadRow({ item }: { item: UploadItem }) {
       </div>
 
       {isInFlight && (
-        <div
-          className="h-1 w-full rounded-full bg-sidebar-item overflow-hidden"
-          role="progressbar"
-          aria-label={`Upload progress for ${item.fileName}`}
-          aria-valuenow={item.progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
+        <div className="h-1 w-full rounded-full bg-sidebar-item overflow-hidden">
+          <progress
+            className="sr-only"
+            aria-label={`Upload progress for ${item.fileName}`}
+            value={item.progress}
+            max={100}
+          />
           <div
+            aria-hidden="true"
             className="h-full rounded-full bg-primary transition-all duration-300"
             /* Width is a runtime percentage, so it cannot be a static Tailwind
                class; same data-driven-style exception as the board's status dots. */

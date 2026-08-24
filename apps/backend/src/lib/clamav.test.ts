@@ -271,25 +271,16 @@ describe("scanStream", () => {
     ).rejects.toBeInstanceOf(ClamAvUnavailableError);
   });
 
-  it("fails closed rather than clean when the daemon hangs up on an unterminated reply", async () => {
-    const port = await startFakeClamd("clean-unterminated");
-    // Sibling of the fragmentation bug: refusing to parse an unterminated
-    // reply must surface as an error (→ HTTP 503, nothing stored), never as a
-    // silent clean verdict.
-    await expect(
-      scanStream(toStream("payload"), { host: "127.0.0.1", port }),
-    ).rejects.toBeInstanceOf(ClamAvUnavailableError);
-  });
-
-  it("throws ClamAvUnavailableError when the daemon closes without replying", async () => {
-    const port = await startFakeClamd("silent");
-    await expect(
-      scanStream(toStream("payload"), { host: "127.0.0.1", port }),
-    ).rejects.toBeInstanceOf(ClamAvUnavailableError);
-  });
-
-  it("throws ClamAvUnavailableError when the daemon hangs up during the handshake", async () => {
-    const port = await startFakeClamd("close-immediately");
+  // Sibling behaviours that must all fail closed the same way: a reply that
+  // never completes (fragmented off, silently, or via an immediate close)
+  // must surface as ClamAvUnavailableError (→ HTTP 503, nothing stored),
+  // never as a silent clean verdict.
+  it.each<[string, ServerBehaviour]>([
+    ["fails closed rather than clean when the daemon hangs up on an unterminated reply", "clean-unterminated"],
+    ["throws ClamAvUnavailableError when the daemon closes without replying", "silent"],
+    ["throws ClamAvUnavailableError when the daemon hangs up during the handshake", "close-immediately"],
+  ])("%s", async (_description, behaviour) => {
+    const port = await startFakeClamd(behaviour);
     await expect(
       scanStream(toStream("payload"), { host: "127.0.0.1", port }),
     ).rejects.toBeInstanceOf(ClamAvUnavailableError);

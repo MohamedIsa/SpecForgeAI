@@ -176,6 +176,14 @@ export function BoardPage() {
                       draggable
                       onDragStart={() => setDraggedTicketId(ticket.id)}
                       onClick={() => setSelectedTicketId(ticket.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedTicketId(ticket.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                       className="cursor-grab"
                     >
                       <TicketCard ticket={toTicketCardData(ticket)} />

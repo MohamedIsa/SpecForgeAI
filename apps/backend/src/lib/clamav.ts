@@ -80,9 +80,18 @@ export function parseScanReply(reply: string): ScanVerdict | null {
   // that trailing keyword — rather than searching anywhere in the string — is
   // what stops a signature *named* e.g. `Trojan.ERROR-1` or `Trojan.OK-1` from
   // being misread as an error or, far worse, as a clean verdict.
-  const found = /^(?:.*?:)?\s*(.+?)\s+FOUND$/.exec(trimmed);
-  if (found) {
-    const signature = found[1];
+  //
+  // This used to be a single regex (`/^(?:.*?:)?\s*(.+?)\s+FOUND$/`), but two
+  // adjacent lazy quantifiers matching over overlapping character classes
+  // (`.*?:` and `.+?`) give the engine super-linear backtracking on
+  // non-matching input — a remote-controlled ReDoS surface, since this runs
+  // on every byte clamd streams back. Plain string ops are equivalent here
+  // (`.*?:` is lazy, so it always resolves to the *first* colon) and are
+  // provably linear.
+  if (trimmed.endsWith(" FOUND")) {
+    const beforeKeyword = trimmed.slice(0, -" FOUND".length);
+    const colonIndex = beforeKeyword.indexOf(":");
+    const signature = (colonIndex === -1 ? beforeKeyword : beforeKeyword.slice(colonIndex + 1)).trim();
     if (!signature) {
       throw new ClamAvProtocolError(`ClamAV reported a threat without a signature: ${trimmed}`);
     }

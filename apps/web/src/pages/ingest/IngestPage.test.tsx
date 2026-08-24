@@ -111,7 +111,7 @@ describe("IngestPage — upload lifecycle", () => {
 
     reportProgress?.(40);
     await waitFor(() => expect(screen.getByText("40%")).toBeInTheDocument());
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "40");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("value", "40");
 
     reportProgress?.(100);
     await waitFor(() => expect(screen.getByText("Scanning")).toBeInTheDocument());

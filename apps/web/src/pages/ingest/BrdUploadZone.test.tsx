@@ -106,7 +106,7 @@ describe("BrdUploadZone — file rows", () => {
   it("renders an animated progress bar while uploading", () => {
     render(<BrdUploadZone items={[makeItem({ state: "uploading", progress: 42 })]} onFilesSelected={vi.fn()} />);
     const bar = screen.getByRole("progressbar");
-    expect(bar).toHaveAttribute("aria-valuenow", "42");
+    expect(bar).toHaveAttribute("value", "42");
     expect(screen.getByText("42%")).toBeInTheDocument();
   });
 

@@ -38,7 +38,7 @@ describe("GenerationProgressCard", () => {
 
   it("reflects progress in the progress bar's value", () => {
     render(<GenerationProgressCard activeStepIndex={GENERATION_STEPS.length - 1} />);
-    expect(screen.getByTestId("generation-progress-bar")).toHaveAttribute("aria-valuenow", "100");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("value", "100");
   });
 
   it("clamps an out-of-range activeStepIndex to the last step", () => {

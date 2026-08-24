@@ -12,8 +12,7 @@ export function GenerationProgressCard({ activeStepIndex }: { activeStepIndex: n
   const progressPercent = Math.round(((clampedIndex + 1) / GENERATION_STEPS.length) * 100);
 
   return (
-    <div
-      role="status"
+    <output
       aria-label="Generating backlog"
       className="flex flex-col gap-md rounded-2lg border border-modal-border bg-modal-bg p-lg"
     >
@@ -32,13 +31,16 @@ export function GenerationProgressCard({ activeStepIndex }: { activeStepIndex: n
         </span>
       </div>
 
-      <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-sidebar-item"
-        data-testid="generation-progress-bar"
-        aria-valuenow={progressPercent}
-        role="progressbar"
-      >
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-sidebar-item">
+        <progress
+          className="sr-only"
+          data-testid="generation-progress-bar"
+          value={progressPercent}
+          max={100}
+          aria-label="Backlog generation progress"
+        />
         <div
+          aria-hidden="true"
           className="h-full rounded-full bg-primary animate-sf-bar-sweep"
           style={{ width: `${progressPercent}%` }}
         />
@@ -63,6 +65,6 @@ export function GenerationProgressCard({ activeStepIndex }: { activeStepIndex: n
           </li>
         ))}
       </ul>
-    </div>
+    </output>
   );
 }
