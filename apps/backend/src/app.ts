@@ -1,3 +1,4 @@
+import "./env";
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
@@ -22,17 +23,15 @@ function createContext({ req, res }: CreateFastifyContextOptions): Context {
 
 /**
  * DEV-TEMP-T1: interactive Swagger/OpenAPI docs at /docs, meant to be torn
- * out later. Fails closed: an explicit ENABLE_SWAGGER=true or =false always
- * wins (normalized for stray case/whitespace); with nothing set, the surface
- * is opt-in everywhere except non-production NODE_ENV, so it's on by default
- * for local dev but a deployment that never heard of this variable does not
- * ship it — see .env.example.
+ * out later. Strictly opt-in everywhere, including local dev — the previous
+ * "on by default outside production" fallback meant a deployment that never
+ * heard of this variable but also never set NODE_ENV=production shipped the
+ * docs surface unintentionally. Now nothing short of an exact "true" (after
+ * trimming stray whitespace and normalizing case) turns it on — see
+ * .env.example.
  */
 function isSwaggerEnabled(): boolean {
-  const raw = process.env.ENABLE_SWAGGER?.trim().toLowerCase();
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  return process.env.NODE_ENV !== "production";
+  return process.env.ENABLE_SWAGGER?.trim().toLowerCase() === "true";
 }
 
 export async function buildApp(): Promise<FastifyInstance> {

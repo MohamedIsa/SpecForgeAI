@@ -25,12 +25,18 @@ interface RefreshTokenPayload {
 
 export function signAccessToken(userId: string): string {
   const payload: AccessTokenPayload = { sub: userId, type: "access" };
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: ACCESS_TOKEN_EXPIRY });
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
+    algorithm: "HS256",
+  });
 }
 
 export function signRefreshToken(userId: string, sessionId: string): string {
   const payload: RefreshTokenPayload = { sub: userId, sid: sessionId, type: "refresh" };
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY });
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: REFRESH_TOKEN_EXPIRY,
+    algorithm: "HS256",
+  });
 }
 
 function isAccessTokenPayload(payload: unknown): payload is AccessTokenPayload {
@@ -64,7 +70,7 @@ export function verifyBearerToken(authorizationHeader: string | undefined): stri
   if (scheme !== "Bearer" || !token) return null;
 
   try {
-    const payload: unknown = jwt.verify(token, getJwtSecret());
+    const payload: unknown = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] });
     return isAccessTokenPayload(payload) ? payload.sub : null;
   } catch {
     return null;
@@ -84,7 +90,7 @@ export interface RefreshTokenClaims {
 export function verifyRefreshToken(token: string | undefined): RefreshTokenClaims | null {
   if (!token) return null;
   try {
-    const payload: unknown = jwt.verify(token, getJwtSecret());
+    const payload: unknown = jwt.verify(token, getJwtSecret(), { algorithms: ["HS256"] });
     return isRefreshTokenPayload(payload)
       ? { userId: payload.sub, sessionId: payload.sid }
       : null;

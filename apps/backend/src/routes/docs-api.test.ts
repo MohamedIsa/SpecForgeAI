@@ -91,7 +91,7 @@ describe("DEV-TEMP-T1 expanded REST documentation surface", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    delete process.env.ENABLE_SWAGGER;
+    process.env.ENABLE_SWAGGER = "true";
     app = await buildApp();
     await app.ready();
   });

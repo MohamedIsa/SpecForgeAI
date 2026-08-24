@@ -121,3 +121,49 @@ describe("signRefreshToken / verifyRefreshToken", () => {
     expect(verifyRefreshToken(accessToken)).toBeNull();
   });
 });
+
+describe("algorithm pinning (SEC-T2)", () => {
+  it("signs access tokens with HS256", () => {
+    const token = signAccessToken("user-123");
+    const decoded = jwt.decode(token, { complete: true });
+    expect(decoded?.header.alg).toBe("HS256");
+  });
+
+  it("signs refresh tokens with HS256", () => {
+    const token = signRefreshToken("user-123", "session-abc");
+    const decoded = jwt.decode(token, { complete: true });
+    expect(decoded?.header.alg).toBe("HS256");
+  });
+
+  it("rejects an access-shaped token signed with the right secret but a different algorithm", () => {
+    // Same secret, same payload shape — only the algorithm differs. If
+    // verifyBearerToken didn't pin `algorithms: ["HS256"]`, this would verify.
+    const hs384Token = jwt.sign({ sub: "user-123", type: "access" }, getSecret(), {
+      expiresIn: "15m",
+      algorithm: "HS384",
+    });
+    expect(verifyBearerToken(`Bearer ${hs384Token}`)).toBeNull();
+  });
+
+  it("rejects a refresh-shaped token signed with the right secret but a different algorithm", () => {
+    const hs512Token = jwt.sign(
+      { sub: "user-123", sid: "session-abc", type: "refresh" },
+      getSecret(),
+      { expiresIn: "30d", algorithm: "HS512" },
+    );
+    expect(verifyRefreshToken(hs512Token)).toBeNull();
+  });
+
+  it("rejects a classic alg:none forged token (no signature at all)", () => {
+    // Hand-crafted rather than produced via jwt.sign, since jsonwebtoken's
+    // signer refuses "none" without an explicit opt-in — this is exactly
+    // what an attacker who noticed an unpinned `algorithms` option would send.
+    const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+    const payload = Buffer.from(
+      JSON.stringify({ sub: "user-123", type: "access", exp: Math.floor(Date.now() / 1000) + 900 }),
+    ).toString("base64url");
+    const forgedToken = `${header}.${payload}.`;
+
+    expect(verifyBearerToken(`Bearer ${forgedToken}`)).toBeNull();
+  });
+});

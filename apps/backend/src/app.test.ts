@@ -34,11 +34,11 @@ function uniqueIp(): string {
   return `10.1.${Math.floor(ipCounter / 255)}.${ipCounter % 255}`;
 }
 
-describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
+describe("buildApp — DEV-TEMP-T1 Swagger docs (explicitly enabled)", () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
-    delete process.env.ENABLE_SWAGGER;
+    process.env.ENABLE_SWAGGER = "true";
     app = await buildApp();
     await app.ready();
   });
@@ -241,6 +241,39 @@ describe("buildApp — ENABLE_SWAGGER unset in production", () => {
   });
 
   it("fails closed: the REST wrappers are absent too", async () => {
+    const response = await app.inject({ method: "GET", url: "/api/health" });
+    expect(response.statusCode).toBe(404);
+  });
+});
+
+describe("buildApp — ENABLE_SWAGGER unset outside production (SEC-T2)", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    delete process.env.ENABLE_SWAGGER;
+    process.env.NODE_ENV = "development";
+    app = await buildApp();
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.ENABLE_SWAGGER;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  // SEC-T2 removed the old "on by default outside production" fallback: a
+  // deployment that forgot to set NODE_ENV=production used to ship the docs
+  // surface by accident. Now unset means off, full stop, regardless of
+  // NODE_ENV.
+  it("does not expose /docs even in local/dev mode", async () => {
+    const response = await app.inject({ method: "GET", url: "/docs" });
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("does not expose the REST wrappers in local/dev mode either", async () => {
     const response = await app.inject({ method: "GET", url: "/api/health" });
     expect(response.statusCode).toBe(404);
   });
