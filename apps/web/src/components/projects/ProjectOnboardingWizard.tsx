@@ -21,8 +21,8 @@ const TEMPLATES: Array<{ value: ProjectTemplate; label: string; description: str
 export interface ProjectOnboardingWizardProps {
   /** Omit for the mandatory first-run flow (zero projects), which has
    *  nothing to cancel back to. Provided when opened from "New workspace". */
-  onCancel?: () => void;
-  onCreated: (message: string) => void;
+  readonly onCancel?: () => void;
+  readonly onCreated: (message: string) => void;
 }
 
 export function ProjectOnboardingWizard({ onCancel, onCreated }: ProjectOnboardingWizardProps) {

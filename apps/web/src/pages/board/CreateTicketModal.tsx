@@ -31,11 +31,11 @@ export function CreateTicketModal({
   onClose,
   onCreated,
 }: {
-  open: boolean;
-  projectId: string;
-  statusId: string | null;
-  onClose: () => void;
-  onCreated: (message: string) => void;
+  readonly open: boolean;
+  readonly projectId: string;
+  readonly statusId: string | null;
+  readonly onClose: () => void;
+  readonly onCreated: (message: string) => void;
 }) {
   const utils = trpc.useUtils();
   const [title, setTitle] = useState("");

@@ -15,7 +15,7 @@ function badgeClass(extension: string): string {
   return EXTENSION_BADGE_STYLES[extension] ?? "bg-priority-p3-bg text-text-secondary";
 }
 
-export function BrdDocumentViewer({ documents }: { documents: BrdDocument[] }) {
+export function BrdDocumentViewer({ documents }: { readonly documents: BrdDocument[] }) {
   const [documentIndex, setDocumentIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
 

@@ -268,7 +268,7 @@ describe("DEV-TEMP-T1 expanded REST documentation surface", () => {
       });
       expect(listResponse.statusCode).toBe(200);
       const initialStatuses: { id: string }[] = JSON.parse(listResponse.payload);
-      expect(initialStatuses.length).toBe(5);
+      expect(initialStatuses).toHaveLength(5);
 
       const createResponse = await app.inject({
         method: "POST",

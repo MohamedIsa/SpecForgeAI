@@ -37,12 +37,12 @@ export function Sidebar({
   onNavigate = () => {},
   unlocked = ALL_UNLOCKED,
 }: {
-  collapsed: boolean;
-  onToggle: () => void;
-  activeView?: SidebarView;
-  onNavigate?: (view: SidebarView) => void;
+  readonly collapsed: boolean;
+  readonly onToggle: () => void;
+  readonly activeView?: SidebarView;
+  readonly onNavigate?: (view: SidebarView) => void;
   /** Which stages are reachable for the current project — see useLifecycleGating. */
-  unlocked?: Record<SidebarView, boolean>;
+  readonly unlocked?: Record<SidebarView, boolean>;
 }) {
   return (
     <aside

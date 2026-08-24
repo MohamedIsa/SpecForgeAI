@@ -12,7 +12,7 @@ import { ContextSummaryPanel } from "./ContextSummaryPanel";
 type SessionState = NonNullable<RouterOutputs["clarification"]["getSessionState"]>;
 type ClarificationQuestion = SessionState["questions"][number];
 
-export function ClarifyPage({ onBacklogReady }: { onBacklogReady?: () => void }) {
+export function ClarifyPage({ onBacklogReady }: { readonly onBacklogReady?: () => void }) {
   const { currentProjectId } = useProjectWorkspace();
   const utils = trpc.useUtils();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);

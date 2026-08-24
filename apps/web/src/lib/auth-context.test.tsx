@@ -92,7 +92,7 @@ describe("AuthProvider", () => {
     fireEvent.click(screen.getByText("sign in"));
     expect(screen.getByTestId("session-email")).toHaveTextContent("ada@example.com");
     expect(window.localStorage.getItem("specforge.auth.session")).toBeNull();
-    expect(window.localStorage.length).toBe(0);
+    expect(window.localStorage).toHaveLength(0);
   });
 
   it("clears the session and calls the server logout procedure when logging out", async () => {

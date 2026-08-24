@@ -16,10 +16,10 @@ function MessageBubble({
   canAnswer,
   onAnswer,
 }: {
-  message: ClarificationMessage;
-  activeQuestion: ClarificationQuestion | null;
-  canAnswer: boolean;
-  onAnswer: (answer: string) => void;
+  readonly message: ClarificationMessage;
+  readonly activeQuestion: ClarificationQuestion | null;
+  readonly canAnswer: boolean;
+  readonly onAnswer: (answer: string) => void;
 }) {
   const isAi = message.role === "ai";
   const isActiveQuestion =
@@ -89,10 +89,10 @@ export function ClarificationChat({
   onAnswer,
   canAnswer,
 }: {
-  session: SessionState | null;
-  isThinking: boolean;
-  onAnswer: (question: ClarificationQuestion, answer: string) => void;
-  canAnswer: boolean;
+  readonly session: SessionState | null;
+  readonly isThinking: boolean;
+  readonly onAnswer: (question: ClarificationQuestion, answer: string) => void;
+  readonly canAnswer: boolean;
 }) {
   const [draft, setDraft] = useState("");
 

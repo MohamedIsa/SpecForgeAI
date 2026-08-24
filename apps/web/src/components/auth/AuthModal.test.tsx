@@ -192,6 +192,6 @@ describe("AuthModal", () => {
     });
 
     expect(window.localStorage.getItem("specforge.auth.session")).toBeNull();
-    expect(window.localStorage.length).toBe(0);
+    expect(window.localStorage).toHaveLength(0);
   });
 });

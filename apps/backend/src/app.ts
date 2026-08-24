@@ -7,12 +7,11 @@ import swaggerUi from "@fastify/swagger-ui";
 import {
   fastifyTRPCPlugin,
   type FastifyTRPCPluginOptions,
+  type CreateFastifyContextOptions,
 } from "@trpc/server/adapters/fastify";
-import type { CreateFastifyContextOptions } from "@trpc/server/adapters/fastify";
 import { registerBrdUploadRoute, BRD_UPLOAD_LIMITS } from "./routes/brd-upload";
 import { registerDocsApiRoutes } from "./routes/docs-api";
-import { appRouter } from "./router";
-import type { AppRouter, Context } from "./router";
+import { appRouter, type AppRouter, type Context } from "./router";
 import { verifyBearerToken } from "./lib/jwt";
 
 function createContext({ req, res }: CreateFastifyContextOptions): Context {

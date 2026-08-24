@@ -5,7 +5,7 @@ import { useProjectWorkspace } from "@/lib/project-context";
 import { trpc } from "@/trpc";
 import { getInitials } from "@/lib/initials";
 
-export function UserMenu({ variant }: { variant: "sidebar" | "header" }) {
+export function UserMenu({ variant }: { readonly variant: "sidebar" | "header" }) {
   const { session, logout } = useAuth();
   const { currentProjectId } = useProjectWorkspace();
   const projectsQuery = trpc.project.listUserProjects.useQuery();

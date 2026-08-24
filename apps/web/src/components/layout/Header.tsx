@@ -17,9 +17,9 @@ export function Header({
   onToggleSidebar,
   activeView = "dashboard",
 }: {
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
-  activeView?: SidebarView;
+  readonly sidebarCollapsed: boolean;
+  readonly onToggleSidebar: () => void;
+  readonly activeView?: SidebarView;
 }) {
   const { currentProjectId } = useProjectWorkspace();
   const projectsQuery = trpc.project.listUserProjects.useQuery();

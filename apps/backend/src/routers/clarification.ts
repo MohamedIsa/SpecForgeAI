@@ -471,10 +471,12 @@ export function compileSpecificationContext(
   const lines: string[] = ["# Compiled Specification Context", "", "## Resolved Ambiguities", ""];
 
   for (const question of questions) {
-    lines.push(`### ${question.ambiguity}`);
-    lines.push(`- Question: ${question.prompt}`);
-    lines.push(`- Answer: ${question.answer ?? ""}`);
-    lines.push("");
+    lines.push(
+      `### ${question.ambiguity}`,
+      `- Question: ${question.prompt}`,
+      `- Answer: ${question.answer ?? ""}`,
+      "",
+    );
   }
 
   lines.push("## Preferred Tech Stack", "");

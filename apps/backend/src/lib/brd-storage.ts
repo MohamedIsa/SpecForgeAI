@@ -24,7 +24,7 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
  */
 export function sanitizeFileName(fileName: string): string {
   const withoutControlChars = fileName.replace(CONTROL_CHARACTERS, "");
-  const withoutDirectories = path.basename(withoutControlChars.replace(/\\/g, "/"));
+  const withoutDirectories = path.basename(withoutControlChars.replaceAll("\\", "/"));
   const trimmed = withoutDirectories.trim();
   if (!trimmed || trimmed === "." || trimmed === "..") return "unnamed";
   return trimmed.slice(0, MAX_FILE_NAME_LENGTH);

@@ -110,11 +110,11 @@ describe("IngestPage — upload lifecycle", () => {
     await waitFor(() => expect(reportProgress).toBeDefined());
 
     reportProgress?.(40);
-    await waitFor(() => expect(screen.getByText("40%")).toBeInTheDocument());
+    expect(await screen.findByText("40%")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("value", "40");
 
     reportProgress?.(100);
-    await waitFor(() => expect(screen.getByText("Scanning")).toBeInTheDocument());
+    expect(await screen.findByText("Scanning")).toBeInTheDocument();
   });
 
   it("marks a file Clean and refreshes the stored file list on success", async () => {
@@ -123,7 +123,7 @@ describe("IngestPage — upload lifecycle", () => {
     renderPage();
     selectFiles([makeFile("requirements.md")]);
 
-    await waitFor(() => expect(screen.getByText("Clean")).toBeInTheDocument());
+    expect(await screen.findByText("Clean")).toBeInTheDocument();
     expect(listFilesInvalidate).toHaveBeenCalledWith({ projectId: PROJECT_ID });
     expect(await screen.findByText("requirements.md scanned clean and stored")).toBeInTheDocument();
   });
@@ -138,7 +138,7 @@ describe("IngestPage — upload lifecycle", () => {
     renderPage();
     selectFiles([makeFile("eicar.md")]);
 
-    await waitFor(() => expect(screen.getByText("Threat Rejected")).toBeInTheDocument());
+    expect(await screen.findByText("Threat Rejected")).toBeInTheDocument();
     expect(
       screen.getByText("Malware signature detected — file was not stored"),
     ).toBeInTheDocument();
@@ -149,7 +149,7 @@ describe("IngestPage — upload lifecycle", () => {
     renderPage();
     selectFiles([makeFile("huge.pdf", 26 * 1024 * 1024)]);
 
-    await waitFor(() => expect(screen.getByText("Rejected")).toBeInTheDocument());
+    expect(await screen.findByText("Rejected")).toBeInTheDocument();
     expect(uploadBrdFileMock).not.toHaveBeenCalled();
     // Surfaced both on the file row and in the toast.
     expect(screen.getAllByText(/exceeds the 25MB limit/).length).toBeGreaterThan(0);
@@ -159,7 +159,7 @@ describe("IngestPage — upload lifecycle", () => {
     renderPage();
     selectFiles([makeFile("malware.exe")]);
 
-    await waitFor(() => expect(screen.getByText("Rejected")).toBeInTheDocument());
+    expect(await screen.findByText("Rejected")).toBeInTheDocument();
     expect(uploadBrdFileMock).not.toHaveBeenCalled();
   });
 
@@ -172,9 +172,7 @@ describe("IngestPage — upload lifecycle", () => {
     renderPage();
     selectFiles([makeFile("spec.md")]);
 
-    await waitFor(() =>
-      expect(screen.getByText("Network error while uploading")).toBeInTheDocument(),
-    );
+    expect(await screen.findByText("Network error while uploading")).toBeInTheDocument();
   });
 
   it("uploads several files in one selection, each with its own row", async () => {
@@ -228,7 +226,7 @@ describe("IngestPage — Proceed to AI Clarification", () => {
     renderPage();
     selectFiles([makeFile("eicar.md")]);
 
-    await waitFor(() => expect(screen.getByText("Threat Rejected")).toBeInTheDocument());
+    expect(await screen.findByText("Threat Rejected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Proceed to AI Clarification/ })).toBeDisabled();
   });
 

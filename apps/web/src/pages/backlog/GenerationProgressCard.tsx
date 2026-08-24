@@ -7,7 +7,7 @@ export const GENERATION_STEPS = [
   "Finalizing acceptance criteria",
 ] as const;
 
-export function GenerationProgressCard({ activeStepIndex }: { activeStepIndex: number }) {
+export function GenerationProgressCard({ activeStepIndex }: { readonly activeStepIndex: number }) {
   const clampedIndex = Math.min(Math.max(activeStepIndex, 0), GENERATION_STEPS.length - 1);
   const progressPercent = Math.round(((clampedIndex + 1) / GENERATION_STEPS.length) * 100);
 

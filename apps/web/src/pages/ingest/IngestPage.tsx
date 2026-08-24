@@ -34,7 +34,7 @@ function outcomeToItem(outcome: UploadOutcome): Pick<UploadItem, "state" | "mess
 }
 
 export interface IngestPageProps {
-  onNavigateToClarify: () => void;
+  readonly onNavigateToClarify: () => void;
 }
 
 export function IngestPage({ onNavigateToClarify }: IngestPageProps) {

@@ -12,13 +12,13 @@ const STEP_INTERVAL_MS = 900;
 export interface BacklogReviewPageProps {
   /** True only when this page was reached via the Clarify CTA — a direct
    *  sidebar visit must not spend an AI call the user didn't ask for. */
-  autoStart?: boolean;
+  readonly autoStart?: boolean;
   /** Called once autoStart has been acted on, so the parent's one-shot
    *  signal doesn't re-fire generation on a later remount of this page. */
-  onAutoStartConsumed?: () => void;
+  readonly onAutoStartConsumed?: () => void;
   /** Receives the confirmation message — the caller must render it,
    *  since publishing navigates away and unmounts this page immediately. */
-  onPublished?: (message: string) => void;
+  readonly onPublished?: (message: string) => void;
 }
 
 export function BacklogReviewPage({

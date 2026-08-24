@@ -25,7 +25,7 @@ const PRIORITY_STYLES: Record<BacklogTicket["priority"], string> = {
   P3: "bg-priority-p3-bg text-text-secondary",
 };
 
-function BacklogTicketCard({ ticket }: { ticket: BacklogTicket }) {
+function BacklogTicketCard({ ticket }: { readonly ticket: BacklogTicket }) {
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const TypeIcon = TYPE_ICONS[ticket.type];
 
@@ -103,8 +103,8 @@ export function EpicAccordionCard({
   epic,
   defaultOpen = false,
 }: {
-  epic: BacklogEpic;
-  defaultOpen?: boolean;
+  readonly epic: BacklogEpic;
+  readonly defaultOpen?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const ticketCount = epic.tickets.length;

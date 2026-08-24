@@ -8,10 +8,10 @@ export function Layout({
   onNavigate,
   unlocked,
 }: {
-  children: ReactNode;
-  activeView?: SidebarView;
-  onNavigate?: (view: SidebarView) => void;
-  unlocked?: Record<SidebarView, boolean>;
+  readonly children: ReactNode;
+  readonly activeView?: SidebarView;
+  readonly onNavigate?: (view: SidebarView) => void;
+  readonly unlocked?: Record<SidebarView, boolean>;
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 

@@ -1,4 +1,10 @@
-export function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+export function ErrorToast({
+  message,
+  onDismiss,
+}: {
+  readonly message: string;
+  readonly onDismiss: () => void;
+}) {
   return (
     <div
       role="alert"
@@ -17,7 +23,13 @@ export function ErrorToast({ message, onDismiss }: { message: string; onDismiss:
   );
 }
 
-export function SuccessToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+export function SuccessToast({
+  message,
+  onDismiss,
+}: {
+  readonly message: string;
+  readonly onDismiss: () => void;
+}) {
   return (
     <output className="fixed top-md left-1/2 -translate-x-1/2 z-50 flex items-center gap-sm rounded-md border border-success bg-modal-bg px-md py-sm text-sm text-text-inverse shadow-lg">
       <span>{message}</span>

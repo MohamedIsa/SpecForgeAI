@@ -46,7 +46,7 @@ async function silentRefresh(): Promise<SignInResult | null> {
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [session, setSessionState] = useState<AuthSession | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
 

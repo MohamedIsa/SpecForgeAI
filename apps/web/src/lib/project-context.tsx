@@ -26,7 +26,7 @@ function readStoredProjectId(): string | null {
   return window.localStorage.getItem(STORAGE_KEY);
 }
 
-export function ProjectProvider({ children }: { children: ReactNode }) {
+export function ProjectProvider({ children }: { readonly children: ReactNode }) {
   const [currentProjectId, setCurrentProjectIdState] = useState<string | null>(() =>
     readStoredProjectId(),
   );

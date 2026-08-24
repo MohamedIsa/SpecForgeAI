@@ -13,10 +13,10 @@ export function ManageStatusesModal({
   onClose,
   onFeedback,
 }: {
-  open: boolean;
-  projectId: string | null;
-  onClose: () => void;
-  onFeedback: (message: string) => void;
+  readonly open: boolean;
+  readonly projectId: string | null;
+  readonly onClose: () => void;
+  readonly onFeedback: (message: string) => void;
 }) {
   const utils = trpc.useUtils();
   const [newStatusName, setNewStatusName] = useState("");

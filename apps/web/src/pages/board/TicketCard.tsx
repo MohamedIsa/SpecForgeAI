@@ -37,7 +37,7 @@ const PRIORITY_STYLES: Record<TicketPriority, string> = {
   P3: "bg-priority-p3-bg text-text-secondary",
 };
 
-export function TicketCard({ ticket }: { ticket: TicketCardData }) {
+export function TicketCard({ ticket }: { readonly ticket: TicketCardData }) {
   const TypeIcon = TYPE_ICONS[ticket.type];
 
   return (

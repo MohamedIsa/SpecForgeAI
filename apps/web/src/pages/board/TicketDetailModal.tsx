@@ -41,9 +41,9 @@ export function TicketDetailModal({
   ticketId,
   onClose,
 }: {
-  projectId: string;
-  ticketId: string | null;
-  onClose: () => void;
+  readonly projectId: string;
+  readonly ticketId: string | null;
+  readonly onClose: () => void;
 }) {
   const utils = trpc.useUtils();
   const [title, setTitle] = useState("");

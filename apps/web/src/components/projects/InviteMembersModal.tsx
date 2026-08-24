@@ -23,10 +23,10 @@ export function InviteMembersModal({
   onClose,
   onInvited,
 }: {
-  open: boolean;
-  projectId: string | null;
-  onClose: () => void;
-  onInvited: (message: string) => void;
+  readonly open: boolean;
+  readonly projectId: string | null;
+  readonly onClose: () => void;
+  readonly onInvited: (message: string) => void;
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<MembershipRole>("editor");

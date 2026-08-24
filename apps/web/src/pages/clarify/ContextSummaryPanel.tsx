@@ -3,7 +3,7 @@ import type { RouterOutputs } from "@/trpc";
 
 type SessionState = NonNullable<RouterOutputs["clarification"]["getSessionState"]>;
 
-export function ContextSummaryPanel({ session }: { session: SessionState | null }) {
+export function ContextSummaryPanel({ session }: { readonly session: SessionState | null }) {
   const questions = session?.questions ?? [];
   const resolvedCount = session?.resolvedCount ?? 0;
   const totalCount = session?.totalCount ?? 0;

@@ -27,7 +27,7 @@ function extensionBadgeClass(extension: string): string {
   return EXTENSION_BADGE_STYLES[extension] ?? "bg-priority-p3-bg text-text-secondary";
 }
 
-function StatusPill({ item }: { item: UploadItem }) {
+function StatusPill({ item }: { readonly item: UploadItem }) {
   if (item.state === "uploading") {
     return (
       <span className="flex items-center gap-xs text-2xs font-medium text-text-secondary">
@@ -71,7 +71,7 @@ function StatusPill({ item }: { item: UploadItem }) {
   );
 }
 
-function UploadRow({ item }: { item: UploadItem }) {
+function UploadRow({ item }: { readonly item: UploadItem }) {
   const isInFlight = item.state === "uploading" || item.state === "scanning";
 
   return (
@@ -124,9 +124,9 @@ export function BrdUploadZone({
   onFilesSelected,
   disabled = false,
 }: {
-  items: UploadItem[];
-  onFilesSelected: (files: File[]) => void;
-  disabled?: boolean;
+  readonly items: UploadItem[];
+  readonly onFilesSelected: (files: File[]) => void;
+  readonly disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);

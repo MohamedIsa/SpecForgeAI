@@ -15,7 +15,7 @@ export type BrdExtension = (typeof ALLOWED_BRD_EXTENSIONS)[number];
 export const BRD_ACCEPT_ATTRIBUTE = ALLOWED_BRD_EXTENSIONS.map((ext) => `.${ext}`).join(",");
 
 export function isBrdExtension(value: string): value is BrdExtension {
-  return ALLOWED_BRD_EXTENSIONS.some((allowed) => allowed === value);
+  return (ALLOWED_BRD_EXTENSIONS as readonly string[]).includes(value);
 }
 
 /**
