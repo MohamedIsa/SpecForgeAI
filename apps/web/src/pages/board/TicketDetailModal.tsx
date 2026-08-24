@@ -218,7 +218,10 @@ export function TicketDetailModal({
             ) : (
               <ul className="flex flex-col gap-xs">
                 {criteria.map((criterion, index) => (
-                  <li key={index} className="flex items-start gap-sm">
+                  <li
+                    key={`${criterion.given}|${criterion.when}|${criterion.expectedResult}`}
+                    className="flex items-start gap-sm"
+                  >
                     <input
                       type="checkbox"
                       checked={criterion.checked}

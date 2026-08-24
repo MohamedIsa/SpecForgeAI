@@ -123,6 +123,15 @@ export function ClarifyPage({ onBacklogReady }: { onBacklogReady?: () => void })
     );
   }
 
+  let startButtonLabel: string;
+  if (startSession.isPending) {
+    startButtonLabel = "Analyzing...";
+  } else if (session) {
+    startButtonLabel = "Start new clarification";
+  } else {
+    startButtonLabel = "Start clarification";
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-lg h-14 shrink-0 border-b border-column-border">
@@ -141,11 +150,7 @@ export function ClarifyPage({ onBacklogReady }: { onBacklogReady?: () => void })
               disabled={startSession.isPending || documents.length === 0}
             >
               <SparklesIcon size={14} />
-              {startSession.isPending
-                ? "Analyzing..."
-                : session
-                  ? "Start new clarification"
-                  : "Start clarification"}
+              {startButtonLabel}
             </Button>
           )}
           <Button

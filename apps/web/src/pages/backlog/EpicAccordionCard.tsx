@@ -64,8 +64,11 @@ function BacklogTicketCard({ ticket }: { ticket: BacklogTicket }) {
       <p className="text-sm font-medium text-text-inverse">{ticket.title}</p>
 
       <ul className="flex flex-col gap-xs" data-testid="acceptance-criteria">
-        {ticket.acceptanceCriteria.map((criterion, index) => (
-          <li key={index} className="text-xs text-text-secondary">
+        {ticket.acceptanceCriteria.map((criterion) => (
+          <li
+            key={`${criterion.given}|${criterion.when}|${criterion.expectedResult}`}
+            className="text-xs text-text-secondary"
+          >
             <span className="text-chip-text font-semibold">Given</span> {criterion.given},{" "}
             <span className="text-chip-text font-semibold">when</span> {criterion.when},{" "}
             <span className="text-chip-text font-semibold">then</span> {criterion.expectedResult}

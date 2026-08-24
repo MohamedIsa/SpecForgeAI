@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { GripVerticalIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ export function ManageStatusesModal({
     reorderMutation.mutate({ projectId, orderedStatusIds: reordered });
   }
 
-  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleCreateSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!projectId) return;
     setErrorMessage(null);

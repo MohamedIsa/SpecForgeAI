@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,15 @@ export function AuthModal() {
 
   const isPending = mode === "signup" ? signupMutation.isPending : loginMutation.isPending;
 
+  let submitButtonLabel: string;
+  if (isPending) {
+    submitButtonLabel = "Please wait...";
+  } else if (mode === "signup") {
+    submitButtonLabel = "Create account";
+  } else {
+    submitButtonLabel = "Sign in";
+  }
+
   function triggerError(message: string) {
     setErrorMessage(message);
     setIsShaking(true);
@@ -46,7 +55,7 @@ export function AuthModal() {
     setErrorMessage(null);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
 
@@ -165,11 +174,7 @@ export function AuthModal() {
                 disabled={isPending}
                 className="bg-gradient-to-r from-primary to-secondary"
               >
-                {isPending
-                  ? "Please wait..."
-                  : mode === "signup"
-                    ? "Create account"
-                    : "Sign in"}
+                {submitButtonLabel}
               </Button>
             </form>
 

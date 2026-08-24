@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { ChevronDownIcon, ChevronRightIcon, ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,7 +123,7 @@ export function IngestPage({ onNavigateToClarify }: IngestPageProps) {
     );
   }
 
-  function handleTechStackSubmit(event: FormEvent<HTMLFormElement>): void {
+  function handleTechStackSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (!currentProjectId) {
       setErrorMessage("Select a project before saving tech stack preferences");

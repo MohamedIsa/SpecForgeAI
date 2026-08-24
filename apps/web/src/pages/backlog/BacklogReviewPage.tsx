@@ -152,7 +152,11 @@ export function BacklogReviewPage({
         {!isGenerating && draft && (
           <div className="flex flex-col gap-md" data-testid="epic-list">
             {draft.epics.map((epic, index) => (
-              <EpicAccordionCard key={`epic-${index}`} epic={epic} defaultOpen={index === 0} />
+              <EpicAccordionCard
+                key={epic.tickets[0]?.ref ?? epic.title}
+                epic={epic}
+                defaultOpen={index === 0}
+              />
             ))}
           </div>
         )}

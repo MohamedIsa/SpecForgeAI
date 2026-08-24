@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export function ProjectOnboardingWizard({ onCancel, onCreated }: ProjectOnboardi
     onError: (error) => setErrorMessage(error.message),
   });
 
-  function handleDetailsSubmit(event: FormEvent<HTMLFormElement>): void {
+  function handleDetailsSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     setErrorMessage(null);
     if (!name.trim() || !key.trim()) {
@@ -67,7 +67,7 @@ export function ProjectOnboardingWizard({ onCancel, onCreated }: ProjectOnboardi
     setStep("details");
   }
 
-  function handleCreate(event: FormEvent<HTMLFormElement>): void {
+  function handleCreate(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     setErrorMessage(null);
 

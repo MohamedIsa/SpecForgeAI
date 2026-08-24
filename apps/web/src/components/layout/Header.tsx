@@ -31,6 +31,7 @@ export function Header({
     <header className="flex items-center shrink-0 px-lg h-14 border-b border-sidebar-border bg-header-bg w-full min-w-0">
       {sidebarCollapsed && (
         <button
+          type="button"
           onClick={onToggleSidebar}
           className="mr-sm size-8 flex items-center justify-center rounded-md text-text-secondary hover:text-text-inverse hover:bg-text-inverse/5 transition-colors cursor-pointer shrink-0"
           aria-label="Expand sidebar"
@@ -52,7 +53,10 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-sm ml-auto shrink-0">
-        <button className="flex items-center gap-sm px-sm py-1 rounded-md text-sm text-text-secondary bg-sidebar-item border border-sidebar-border transition-colors hover:text-text-disabled hover:border-sidebar-item-border cursor-pointer">
+        <button
+          type="button"
+          className="flex items-center gap-sm px-sm py-1 rounded-md text-sm text-text-secondary bg-sidebar-item border border-sidebar-border transition-colors hover:text-text-disabled hover:border-sidebar-item-border cursor-pointer"
+        >
           <SearchIcon size={14} />
           <span className="hidden sm:inline">Search</span>
           <span className="px-1 py-px rounded text-2xs font-medium bg-sidebar-border text-text-secondary">
@@ -61,6 +65,7 @@ export function Header({
         </button>
 
         <button
+          type="button"
           className="relative size-8 flex items-center justify-center rounded-md text-text-secondary hover:text-text-inverse hover:bg-text-inverse/5 transition-colors cursor-pointer"
           aria-label="Notifications"
         >

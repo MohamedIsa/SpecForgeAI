@@ -12,6 +12,16 @@ const NAV_ITEMS = [
 
 export type SidebarView = (typeof NAV_ITEMS)[number]["view"];
 
+function navItemClassName(isUnlocked: boolean, isActive: boolean): string {
+  if (!isUnlocked) {
+    return "text-text-disabled/50 cursor-not-allowed";
+  }
+  const activeClass = isActive
+    ? "text-text-inverse bg-text-inverse/[0.04]"
+    : "text-text-disabled";
+  return `hover:bg-text-inverse/[0.04] hover:text-text-inverse cursor-pointer ${activeClass}`;
+}
+
 const ALL_UNLOCKED: Record<SidebarView, boolean> = {
   dashboard: true,
   ingest: true,
@@ -48,6 +58,7 @@ export function Sidebar({
           </span>
         </div>
         <button
+          type="button"
           onClick={onToggle}
           className="size-6 flex items-center justify-center rounded text-text-secondary hover:text-text-inverse hover:bg-text-inverse/5 transition-colors cursor-pointer"
           aria-label="Toggle sidebar"
@@ -73,15 +84,7 @@ export function Sidebar({
                   aria-current={activeView === item.view ? "page" : undefined}
                   aria-disabled={!isUnlocked}
                   title={isUnlocked ? undefined : "Complete the previous stage to unlock this"}
-                  className={`w-full flex items-center gap-sm px-sm py-1.5 rounded-md text-sm transition-colors whitespace-nowrap ${
-                    isUnlocked
-                      ? `hover:bg-text-inverse/[0.04] hover:text-text-inverse cursor-pointer ${
-                          activeView === item.view
-                            ? "text-text-inverse bg-text-inverse/[0.04]"
-                            : "text-text-disabled"
-                        }`
-                      : "text-text-disabled/50 cursor-not-allowed"
-                  }`}
+                  className={`w-full flex items-center gap-sm px-sm py-1.5 rounded-md text-sm transition-colors whitespace-nowrap ${navItemClassName(isUnlocked, activeView === item.view)}`}
                 >
                   <span className="size-4 flex items-center justify-center text-xs">
                     {item.icon}

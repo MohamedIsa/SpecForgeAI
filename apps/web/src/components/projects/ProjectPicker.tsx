@@ -37,6 +37,7 @@ export function ProjectPicker() {
   return (
     <div className="relative px-md pb-md" ref={containerRef}>
       <button
+        type="button"
         onClick={() => setIsOpen((value) => !value)}
         aria-label="Workspace switcher"
         className="w-full flex items-center justify-between px-sm py-1.5 rounded-md text-sm text-text-disabled bg-sidebar-item border border-sidebar-border transition-colors hover:text-text-inverse hover:border-sidebar-item-border cursor-pointer"
@@ -69,6 +70,7 @@ export function ProjectPicker() {
             {projects.map((project) => (
               <li key={project.id}>
                 <button
+                  type="button"
                   onClick={() => {
                     setCurrentProjectId(project.id);
                     setIsOpen(false);
@@ -88,6 +90,7 @@ export function ProjectPicker() {
 
           <div className="border-t border-modal-border py-1">
             <button
+              type="button"
               onClick={() => {
                 setIsInviteOpen(true);
                 setIsOpen(false);
@@ -99,6 +102,7 @@ export function ProjectPicker() {
               Invite team members
             </button>
             <button
+              type="button"
               onClick={() => {
                 startOnboarding();
                 setIsOpen(false);
