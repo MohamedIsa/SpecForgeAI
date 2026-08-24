@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { CookieSerializeOptions } from "@fastify/cookie";
 import { appRouter } from "./router";
 import type { Context } from "./router";
@@ -26,13 +27,21 @@ export interface TestCallerResult {
   reply: FakeReply;
 }
 
+/**
+ * `ip` defaults to a fresh value on every call specifically so the
+ * authProcedure/aiProcedure rate limiters (keyed by IP or userId — see
+ * trpc.ts) never see two unrelated test cases as "the same client": each
+ * call to this helper looks like a distinct caller unless a test explicitly
+ * passes the same `ip` on purpose (e.g. to exercise the limiter itself).
+ */
 export function createTestCaller(
   userId: string | null,
   cookies: Record<string, string | undefined> = {},
+  ip: string = randomUUID(),
 ): TestCallerResult {
   const reply = new FakeReply();
   const ctx: Context = {
-    req: { headers: {}, cookies },
+    req: { headers: {}, cookies, ip },
     res: reply,
     userId,
   };

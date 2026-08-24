@@ -22,6 +22,18 @@ function uniqueEmail(): string {
   return `app-test-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
 }
 
+/**
+ * light-my-request defaults every injected request's source IP to
+ * 127.0.0.1, which would make every signup/login call below look like the
+ * same client to authProcedure's per-IP rate limiter. Each call needs a
+ * distinct address so this suite's incidental auth-call volume never trips it.
+ */
+let ipCounter = 0;
+function uniqueIp(): string {
+  ipCounter += 1;
+  return `10.1.${Math.floor(ipCounter / 255)}.${ipCounter % 255}`;
+}
+
 describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
   let app: FastifyInstance;
 
@@ -73,6 +85,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/auth/signup",
+        remoteAddress: uniqueIp(),
         payload: { fullName: "Docs Test", email, password: "a-strong-password" },
       });
       expect(response.statusCode).toBe(200);
@@ -89,6 +102,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const response = await app.inject({
         method: "POST",
         url: "/api/auth/signup",
+        remoteAddress: uniqueIp(),
         payload: { fullName: "", email: "not-an-email", password: "short" },
       });
       expect(response.statusCode).toBe(400);
@@ -99,6 +113,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const signupResponse = await app.inject({
         method: "POST",
         url: "/api/auth/signup",
+        remoteAddress: uniqueIp(),
         payload: { fullName: "Docs Login Test", email, password: "a-strong-password" },
       });
       const signupBody: { user: { id: string } } = JSON.parse(signupResponse.payload);
@@ -107,6 +122,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const loginResponse = await app.inject({
         method: "POST",
         url: "/api/auth/login",
+        remoteAddress: uniqueIp(),
         payload: { email, password: "a-strong-password" },
       });
       expect(loginResponse.statusCode).toBe(200);
@@ -118,6 +134,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const signupResponse = await app.inject({
         method: "POST",
         url: "/api/auth/signup",
+        remoteAddress: uniqueIp(),
         payload: { fullName: "Docs Wrong Password", email, password: "a-strong-password" },
       });
       const signupBody: { user: { id: string } } = JSON.parse(signupResponse.payload);
@@ -126,6 +143,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const loginResponse = await app.inject({
         method: "POST",
         url: "/api/auth/login",
+        remoteAddress: uniqueIp(),
         payload: { email, password: "the-wrong-password" },
       });
       expect(loginResponse.statusCode).toBe(401);
@@ -141,6 +159,7 @@ describe("buildApp — DEV-TEMP-T1 Swagger docs (enabled by default)", () => {
       const signupResponse = await app.inject({
         method: "POST",
         url: "/api/auth/signup",
+        remoteAddress: uniqueIp(),
         payload: { fullName: "Docs Projects Test", email, password: "a-strong-password" },
       });
       const signupBody: { accessToken: string; user: { id: string } } = JSON.parse(

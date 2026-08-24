@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { PoolClient } from "pg";
 import type { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, aiProcedure } from "../trpc";
 import { pool } from "../db/pool";
 import { generateBacklogInput, publishBacklogInput } from "../validation";
 import { getMembershipRole, canEditProject } from "../lib/project-access";
@@ -192,7 +192,7 @@ async function resolveDependencies(
 }
 
 export const backlogRouter = router({
-  generateBacklog: protectedProcedure
+  generateBacklog: aiProcedure
     .input(generateBacklogInput)
     .mutation(async ({ ctx, input }): Promise<GenerateBacklogResult> => {
       await requireEditor(input.projectId, ctx.userId);

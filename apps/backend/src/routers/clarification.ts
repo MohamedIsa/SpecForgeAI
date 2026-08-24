@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { PoolClient } from "pg";
-import { router, protectedProcedure } from "../trpc";
+import { router, protectedProcedure, aiProcedure } from "../trpc";
 import { pool } from "../db/pool";
 import {
   startClarificationInput,
@@ -516,7 +516,7 @@ export const clarificationRouter = router({
       return loadProjectBrdDocuments(input.projectId);
     }),
 
-  startSession: protectedProcedure
+  startSession: aiProcedure
     .input(startClarificationInput)
     .mutation(async ({ ctx, input }): Promise<ClarificationSessionState> => {
       await requireEditor(input.projectId, ctx.userId);

@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -47,7 +48,16 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await fastify.register(cookie);
 
-  await fastify.register(multipart, { limits: BRD_UPLOAD_LIMITS });
+  // Blanket HTTP-level baseline against gross abuse (scripted floods, scraping).
+  // This is deliberately coarse — it can't distinguish individual tRPC
+  // procedures batched into one /trpc request, which is what the per-procedure
+  // authProcedure/aiProcedure limiters in trpc.ts exist to cover.
+  await fastify.register(rateLimit, {
+    max: 300,
+    timeWindow: "1 minute",
+  });
+
+  await fastify.register(multipart, { limits: { ...BRD_UPLOAD_LIMITS, files: 10 } });
 
   if (isSwaggerEnabled()) {
     // Dynamic mode: @fastify/swagger builds the document by scanning every

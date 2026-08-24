@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { TRPCError } from "@trpc/server";
 import type { CookieSerializeOptions } from "@fastify/cookie";
-import { router, publicProcedure } from "../trpc";
+import { router, publicProcedure, authProcedure } from "../trpc";
 import { pool } from "../db/pool";
 import {
   signAccessToken,
@@ -105,7 +105,7 @@ function issueAuthResult(user: UserRow, session: SessionRow, res: ReplyLike): Au
 }
 
 export const authRouter = router({
-  signup: publicProcedure
+  signup: authProcedure
     .input(signupInput)
     .mutation(async ({ ctx, input }): Promise<AuthResult> => {
       const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -140,7 +140,7 @@ export const authRouter = router({
       return issueAuthResult(user, session, ctx.res);
     }),
 
-  login: publicProcedure
+  login: authProcedure
     .input(loginInput)
     .mutation(async ({ ctx, input }): Promise<AuthResult> => {
       const result = await pool.query<UserRow>(

@@ -75,6 +75,18 @@ function uniqueKey(): string {
   return `D${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
+/**
+ * light-my-request defaults every injected request's source IP to
+ * 127.0.0.1, which would make every signup() call in this file look like
+ * the same client to authProcedure's per-IP rate limiter. Each call needs a
+ * distinct address so this suite's incidental signup volume never trips it.
+ */
+let ipCounter = 0;
+function uniqueIp(): string {
+  ipCounter += 1;
+  return `10.0.${Math.floor(ipCounter / 255)}.${ipCounter % 255}`;
+}
+
 describe("DEV-TEMP-T1 expanded REST documentation surface", () => {
   let app: FastifyInstance;
 
@@ -93,6 +105,7 @@ describe("DEV-TEMP-T1 expanded REST documentation surface", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/signup",
+      remoteAddress: uniqueIp(),
       payload: { fullName: "Docs API Test", email, password: "a-strong-password" },
     });
     const body: { accessToken: string; user: { id: string } } = JSON.parse(response.payload);
