@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { TRPCError } from "@trpc/server";
 import { createTestCaller, type CapturedCookie, type FakeReply } from "../test-utils";
 import { pool } from "../db/pool";
 import type { AuthResult } from "./auth";
@@ -221,6 +222,80 @@ describe("authRouter.login", () => {
       }),
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  describe("email enumeration protection (SEC-T4)", () => {
+    it("returns byte-for-byte the same error message for a wrong password and a non-existent email", async () => {
+      const email = uniqueEmail();
+      await signupUser({ email, password: "correct-password" });
+
+      let wrongPasswordError: unknown;
+      try {
+        await createTestCaller(null).caller.auth.login({
+          email,
+          password: "wrong-password",
+          rememberMe: false,
+        });
+      } catch (error) {
+        wrongPasswordError = error;
+      }
+
+      let noSuchUserError: unknown;
+      try {
+        await createTestCaller(null).caller.auth.login({
+          email: uniqueEmail(),
+          password: "whatever-password",
+          rememberMe: false,
+        });
+      } catch (error) {
+        noSuchUserError = error;
+      }
+
+      expect(wrongPasswordError).toBeInstanceOf(TRPCError);
+      expect(noSuchUserError).toBeInstanceOf(TRPCError);
+      expect((wrongPasswordError as TRPCError).message).toBe(
+        (noSuchUserError as TRPCError).message,
+      );
+    });
+
+    it("runs a bcrypt.compare against a dummy hash even when the email has no matching account", async () => {
+      const compareSpy = vi.spyOn(bcrypt, "compare");
+      try {
+        await expect(
+          createTestCaller(null).caller.auth.login({
+            email: uniqueEmail(),
+            password: "whatever-password",
+            rememberMe: false,
+          }),
+        ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+        // Exactly one compare — the dummy-hash path — since no real user
+        // row (and therefore no real password_hash) exists to compare against.
+        expect(compareSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        compareSpy.mockRestore();
+      }
+    });
+
+    it("runs exactly one bcrypt.compare for a real account too, so both paths pay the same cost", async () => {
+      const email = uniqueEmail();
+      await signupUser({ email, password: "correct-password" });
+
+      const compareSpy = vi.spyOn(bcrypt, "compare");
+      try {
+        await expect(
+          createTestCaller(null).caller.auth.login({
+            email,
+            password: "wrong-password",
+            rememberMe: false,
+          }),
+        ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+        expect(compareSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        compareSpy.mockRestore();
+      }
+    });
+  });
 });
 
 describe("authRouter.refreshSession", () => {
@@ -328,6 +403,135 @@ describe("authRouter.refreshSession", () => {
 
     const { caller } = createTestCaller(null, { refreshToken: cookie.value });
     await expect(caller.auth.refreshSession()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  describe("absolute session ceiling (SEC-T4)", () => {
+    it("sets a new login's absolute_expires_at to its own 30-day expiry", async () => {
+      const { reply } = await signupUser();
+      const cookie = requireCookie(reply, "refreshToken");
+      const decoded = jwt.verify(cookie.value, getSecret()) as RefreshPayload;
+
+      const row = await pool.query<{ expires_at: Date; absolute_expires_at: Date }>(
+        "SELECT expires_at, absolute_expires_at FROM sessions WHERE id = $1",
+        [decoded.sid],
+      );
+      const session = row.rows[0];
+      expect(session).toBeDefined();
+      expect(new Date(session!.absolute_expires_at).getTime()).toBe(
+        new Date(session!.expires_at).getTime(),
+      );
+    });
+
+    it("caps a rotated session's expiry to the inherited ceiling instead of a fresh 30-day window", async () => {
+      const { reply } = await signupUser();
+      const cookie = requireCookie(reply, "refreshToken");
+      const decoded = jwt.verify(cookie.value, getSecret()) as RefreshPayload;
+
+      // Simulate a session nearing the end of its 30-day lineage: still
+      // valid, but its ceiling is only an hour out — far short of a fresh
+      // 30-day rolling window.
+      const nearCeiling = new Date(Date.now() + 60 * 60 * 1000);
+      await pool.query(
+        "UPDATE sessions SET expires_at = $1, absolute_expires_at = $1 WHERE id = $2",
+        [nearCeiling, decoded.sid],
+      );
+
+      const { caller, reply: refreshReply } = createTestCaller(null, {
+        refreshToken: cookie.value,
+      });
+      await caller.auth.refreshSession();
+      const newCookie = requireCookie(refreshReply, "refreshToken");
+      const newDecoded = jwt.verify(newCookie.value, getSecret()) as RefreshPayload;
+
+      const rotated = await pool.query<{ expires_at: Date }>(
+        "SELECT expires_at FROM sessions WHERE id = $1",
+        [newDecoded.sid],
+      );
+      const rotatedExpiresAt = rotated.rows[0];
+      expect(rotatedExpiresAt).toBeDefined();
+
+      const rotatedMs = new Date(rotatedExpiresAt!.expires_at).getTime();
+      const uncappedThirtyDayMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      // Must land at (approximately) the inherited ceiling, nowhere near a
+      // fresh 30-day window.
+      expect(Math.abs(rotatedMs - nearCeiling.getTime())).toBeLessThan(5_000);
+      expect(rotatedMs).toBeLessThan(uncappedThirtyDayMs - 24 * 60 * 60 * 1000);
+    });
+
+    it("propagates the same absolute_expires_at ceiling unchanged across repeated rotations", async () => {
+      const { reply } = await signupUser();
+      const firstCookie = requireCookie(reply, "refreshToken");
+      const firstDecoded = jwt.verify(firstCookie.value, getSecret()) as RefreshPayload;
+
+      const original = await pool.query<{ absolute_expires_at: Date }>(
+        "SELECT absolute_expires_at FROM sessions WHERE id = $1",
+        [firstDecoded.sid],
+      );
+      const originalCeilingMs = new Date(original.rows[0]!.absolute_expires_at).getTime();
+
+      const { caller: firstRefreshCaller, reply: firstRefreshReply } = createTestCaller(null, {
+        refreshToken: firstCookie.value,
+      });
+      await firstRefreshCaller.auth.refreshSession();
+      const secondCookie = requireCookie(firstRefreshReply, "refreshToken");
+      const secondDecoded = jwt.verify(secondCookie.value, getSecret()) as RefreshPayload;
+
+      // Capture session #2's ceiling now — rotating again below deletes it.
+      const secondRow = await pool.query<{ absolute_expires_at: Date }>(
+        "SELECT absolute_expires_at FROM sessions WHERE id = $1",
+        [secondDecoded.sid],
+      );
+
+      const { caller: secondRefreshCaller, reply: secondRefreshReply } = createTestCaller(null, {
+        refreshToken: secondCookie.value,
+      });
+      await secondRefreshCaller.auth.refreshSession();
+      const thirdCookie = requireCookie(secondRefreshReply, "refreshToken");
+      const thirdDecoded = jwt.verify(thirdCookie.value, getSecret()) as RefreshPayload;
+
+      const thirdRow = await pool.query<{ absolute_expires_at: Date }>(
+        "SELECT absolute_expires_at FROM sessions WHERE id = $1",
+        [thirdDecoded.sid],
+      );
+
+      expect(new Date(secondRow.rows[0]!.absolute_expires_at).getTime()).toBe(originalCeilingMs);
+      expect(new Date(thirdRow.rows[0]!.absolute_expires_at).getTime()).toBe(originalCeilingMs);
+    });
+
+    it("rejects refresh once the absolute ceiling has actually been reached", async () => {
+      const { reply } = await signupUser();
+      const cookie = requireCookie(reply, "refreshToken");
+      const decoded = jwt.verify(cookie.value, getSecret()) as RefreshPayload;
+
+      const pastCeiling = new Date(Date.now() - 60 * 1000);
+      await pool.query(
+        "UPDATE sessions SET expires_at = $1, absolute_expires_at = $1 WHERE id = $2",
+        [pastCeiling, decoded.sid],
+      );
+
+      const { caller } = createTestCaller(null, { refreshToken: cookie.value });
+      await expect(caller.auth.refreshSession()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    });
+
+    it("prunes other expired session rows as a side effect of a successful refresh", async () => {
+      const { reply, result } = await signupUser();
+      const cookie = requireCookie(reply, "refreshToken");
+
+      const staleExpiry = new Date(Date.now() - 60 * 60 * 1000);
+      const staleSession = await pool.query<{ id: string }>(
+        `INSERT INTO sessions (user_id, remember_me, expires_at, absolute_expires_at)
+         VALUES ($1, false, $2, $2) RETURNING id`,
+        [result.user.id, staleExpiry],
+      );
+      const staleId = staleSession.rows[0]?.id;
+      expect(staleId).toBeDefined();
+
+      const { caller } = createTestCaller(null, { refreshToken: cookie.value });
+      await caller.auth.refreshSession();
+
+      const staleRow = await pool.query("SELECT id FROM sessions WHERE id = $1", [staleId]);
+      expect(staleRow.rows).toHaveLength(0);
+    });
   });
 });
 

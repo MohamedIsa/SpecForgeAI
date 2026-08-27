@@ -252,6 +252,15 @@ export const projectRouter = router({
           message: "You do not have permission to invite members to this project",
         });
       }
+      // An editor can invite editors/viewers, but granting "owner" is an
+      // owner-only privilege — otherwise an editor could hand ownership to
+      // an accomplice (or a second account of their own) and escalate.
+      if (input.role === "owner" && requesterRole !== "owner") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only an owner can invite a new member as owner",
+        });
+      }
 
       const userResult = await pool.query<{ id: string }>(
         "SELECT id FROM users WHERE email = $1",

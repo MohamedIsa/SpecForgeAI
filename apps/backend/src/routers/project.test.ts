@@ -294,6 +294,83 @@ describe("projectRouter.inviteMember", () => {
     expect(result.membership.role).toBe("viewer");
   });
 
+  it("rejects an Editor inviting a new member as Owner with FORBIDDEN (SEC-T4 privilege escalation)", async () => {
+    const owner = await createUser("Escalation Owner");
+    const editor = await createUser("Escalation Editor");
+    const accomplice = await createUser("Escalation Accomplice");
+
+    const created = await createCaller(owner.id).project.createProject({
+      name: "Escalation Project",
+      key: uniqueKey(),
+      template: "kanban",
+    });
+
+    await createCaller(owner.id).project.inviteMember({
+      projectId: created.project.id,
+      email: editor.email,
+      role: "editor",
+    });
+
+    await expect(
+      createCaller(editor.id).project.inviteMember({
+        projectId: created.project.id,
+        email: accomplice.email,
+        role: "owner",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    const membershipCheck = await pool.query(
+      "SELECT role FROM project_memberships WHERE project_id = $1 AND user_id = $2",
+      [created.project.id, accomplice.id],
+    );
+    expect(membershipCheck.rows).toHaveLength(0);
+  });
+
+  it("rejects a Viewer inviting a new member as Owner with FORBIDDEN", async () => {
+    const owner = await createUser("Viewer Escalation Owner");
+    const viewer = await createUser("Viewer Escalation Viewer");
+    const accomplice = await createUser("Viewer Escalation Accomplice");
+
+    const created = await createCaller(owner.id).project.createProject({
+      name: "Viewer Escalation Project",
+      key: uniqueKey(),
+      template: "kanban",
+    });
+
+    await createCaller(owner.id).project.inviteMember({
+      projectId: created.project.id,
+      email: viewer.email,
+      role: "viewer",
+    });
+
+    await expect(
+      createCaller(viewer.id).project.inviteMember({
+        projectId: created.project.id,
+        email: accomplice.email,
+        role: "owner",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("allows the owner to invite a new member as Owner", async () => {
+    const owner = await createUser("Owner Invite Owner");
+    const coOwner = await createUser("Owner Invite Co-owner");
+
+    const created = await createCaller(owner.id).project.createProject({
+      name: "Owner Invite Project",
+      key: uniqueKey(),
+      template: "kanban",
+    });
+
+    const result = await createCaller(owner.id).project.inviteMember({
+      projectId: created.project.id,
+      email: coOwner.email,
+      role: "owner",
+    });
+
+    expect(result.membership.role).toBe("owner");
+  });
+
   it("rejects an invite from a Viewer with FORBIDDEN", async () => {
     const owner = await createUser("Viewer Restriction Owner");
     const viewer = await createUser("Restricted Viewer");

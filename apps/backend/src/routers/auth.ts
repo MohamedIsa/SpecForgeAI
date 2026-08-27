@@ -18,6 +18,15 @@ const REFRESH_COOKIE_PATH = "/";
 const SESSION_VALIDITY_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
+/**
+ * A bcrypt.compare call is the expensive step in login — if it only ever
+ * runs for emails that exist, an attacker can time responses to enumerate
+ * accounts. Comparing against this precomputed hash for a missing user
+ * keeps the two paths' cost roughly equal. The password is a fixed,
+ * meaningless constant: nothing is ever meant to match it.
+ */
+const DUMMY_HASH = bcrypt.hashSync("dummy-password-for-timing-parity", SALT_ROUNDS);
+
 interface UserRow {
   id: string;
   full_name: string;
@@ -30,6 +39,7 @@ interface SessionRow {
   user_id: string;
   remember_me: boolean;
   expires_at: Date;
+  absolute_expires_at: Date;
 }
 
 export interface AuthUser {
@@ -78,19 +88,39 @@ function clearRefreshCookie(res: ReplyLike): void {
   res.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
 }
 
-async function createSession(userId: string, rememberMe: boolean): Promise<SessionRow> {
-  const expiresAt = new Date(Date.now() + SESSION_VALIDITY_MS);
+/**
+ * `absoluteExpiresAt` is the hard ceiling on this session's lineage: omitted
+ * for a brand-new login (defaults to the normal 30d window, so the first
+ * session's ceiling equals its own expiry), but on rotation the caller must
+ * pass the ORIGINAL session's ceiling through unchanged — never recomputed —
+ * so a refresh token can keep a session alive indefinitely in 30-day rolling
+ * windows, but never past 30 days from the actual login.
+ */
+async function createSession(
+  userId: string,
+  rememberMe: boolean,
+  absoluteExpiresAt: Date = new Date(Date.now() + SESSION_VALIDITY_MS),
+): Promise<SessionRow> {
+  const rollingExpiresAt = new Date(Date.now() + SESSION_VALIDITY_MS);
+  const expiresAt = rollingExpiresAt < absoluteExpiresAt ? rollingExpiresAt : absoluteExpiresAt;
   const inserted = await pool.query<SessionRow>(
-    `INSERT INTO sessions (user_id, remember_me, expires_at)
-     VALUES ($1, $2, $3)
-     RETURNING id, user_id, remember_me, expires_at`,
-    [userId, rememberMe, expiresAt],
+    `INSERT INTO sessions (user_id, remember_me, expires_at, absolute_expires_at)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, user_id, remember_me, expires_at, absolute_expires_at`,
+    [userId, rememberMe, expiresAt, absoluteExpiresAt],
   );
   const row = inserted.rows[0];
   if (!row) {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create session" });
   }
   return row;
+}
+
+/** Opportunistic cleanup so the sessions table doesn't grow unbounded with
+ *  dead rows — runs on the natural traffic that already touches sessions
+ *  (refresh) rather than needing a separate cron job. */
+async function pruneExpiredSessions(): Promise<void> {
+  await pool.query("DELETE FROM sessions WHERE expires_at <= now()");
 }
 
 function issueAuthResult(user: UserRow, session: SessionRow, res: ReplyLike): AuthResult {
@@ -149,6 +179,10 @@ export const authRouter = router({
       );
       const user = result.rows[0];
       if (!user) {
+        // Burn the same bcrypt.compare cost a real attempt would pay, so
+        // response timing can't be used to tell "wrong password" apart from
+        // "no such account".
+        await bcrypt.compare(input.password, DUMMY_HASH);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
       }
 
@@ -171,9 +205,12 @@ export const authRouter = router({
     // Atomic delete-and-return: under concurrent reuse of the same refresh
     // token, exactly one caller's DELETE matches a row; the other gets zero
     // rows back and is rejected, preventing duplicate session rotation.
+    // expires_at is always <= absolute_expires_at by construction (see
+    // createSession), so this same check already enforces the absolute
+    // ceiling — no separate comparison needed here.
     const deleted = await pool.query<SessionRow>(
       `DELETE FROM sessions WHERE id = $1 AND user_id = $2 AND expires_at > now()
-       RETURNING id, user_id, remember_me, expires_at`,
+       RETURNING id, user_id, remember_me, expires_at, absolute_expires_at`,
       [claims.sessionId, claims.userId],
     );
     const oldSession = deleted.rows[0];
@@ -192,7 +229,12 @@ export const authRouter = router({
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Session expired, please sign in again" });
     }
 
-    const newSession = await createSession(oldSession.user_id, oldSession.remember_me);
+    const newSession = await createSession(
+      oldSession.user_id,
+      oldSession.remember_me,
+      oldSession.absolute_expires_at,
+    );
+    await pruneExpiredSessions();
     return issueAuthResult(user, newSession, ctx.res);
   }),
 
