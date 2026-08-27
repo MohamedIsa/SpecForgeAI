@@ -5,6 +5,8 @@ import {
   sanitizeFileName,
   resolveUploadDir,
   buildStoragePath,
+  matchesFileSignature,
+  MAGIC_BYTES_HEADER_LENGTH,
   MAX_BRD_FILE_BYTES,
 } from "./brd-storage";
 
@@ -102,6 +104,61 @@ describe("resolveUploadDir", () => {
   it("defaults to ./uploads when unset", () => {
     delete process.env.BRD_UPLOAD_DIR;
     expect(resolveUploadDir().endsWith("uploads")).toBe(true);
+  });
+});
+
+describe("matchesFileSignature (SEC-T5)", () => {
+  it("accepts a genuine PDF header", () => {
+    expect(matchesFileSignature("pdf", Buffer.from("%PDF-1.7 rest of file"))).toBe(true);
+  });
+
+  it("rejects a .pdf claim whose bytes are plain text", () => {
+    expect(matchesFileSignature("pdf", Buffer.from("just some text content"))).toBe(false);
+  });
+
+  it("accepts a genuine ZIP/OOXML (.docx) local-file-header signature", () => {
+    const header = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.from("rest of the zip"),
+    ]);
+    expect(matchesFileSignature("docx", header)).toBe(true);
+  });
+
+  it("rejects a .docx claim whose bytes are plain text", () => {
+    expect(matchesFileSignature("docx", Buffer.from("just some text content"))).toBe(false);
+  });
+
+  it("rejects a PE/executable header disguised with a .pdf extension", () => {
+    const peHeader = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
+    expect(matchesFileSignature("pdf", peHeader)).toBe(false);
+  });
+
+  it("rejects a header shorter than the expected signature rather than partially matching", () => {
+    // "%PD" — a truncated/prefix match of "%PDF-" must never pass.
+    expect(matchesFileSignature("pdf", Buffer.from("%PD"))).toBe(false);
+  });
+
+  it("rejects an empty buffer for a format that has a signature to check", () => {
+    expect(matchesFileSignature("pdf", Buffer.alloc(0))).toBe(false);
+    expect(matchesFileSignature("docx", Buffer.alloc(0))).toBe(false);
+  });
+
+  it("does not check .md — any content, including empty, is accepted", () => {
+    expect(matchesFileSignature("md", Buffer.from("# just markdown"))).toBe(true);
+    expect(matchesFileSignature("md", Buffer.alloc(0))).toBe(true);
+    expect(matchesFileSignature("md", Buffer.from([0x4d, 0x5a]))).toBe(true);
+  });
+
+  it("does not false-accept a PDF header on a .docx claim or vice versa (cross-format confusion)", () => {
+    expect(matchesFileSignature("docx", Buffer.from("%PDF-1.7"))).toBe(false);
+    const zipHeader = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from("x")]);
+    expect(matchesFileSignature("pdf", zipHeader)).toBe(false);
+  });
+});
+
+describe("MAGIC_BYTES_HEADER_LENGTH", () => {
+  it("is at least as long as the longest signature it needs to check (.pdf's 5-byte %PDF-)", () => {
+    expect(MAGIC_BYTES_HEADER_LENGTH).toBeGreaterThanOrEqual(5);
   });
 });
 

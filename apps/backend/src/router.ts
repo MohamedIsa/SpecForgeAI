@@ -12,7 +12,9 @@ export type { Context } from "./trpc";
 
 export type HealthResult =
   | { status: "ok"; database: "connected" }
-  | { status: "error"; database: "unreachable"; message: string };
+  | { status: "error"; database: "unreachable"; message: "Database is unreachable" };
+
+const GENERIC_DATABASE_ERROR_MESSAGE = "Database is unreachable";
 
 export const appRouter = router({
   health: publicProcedure.query(async (): Promise<HealthResult> => {
@@ -20,8 +22,16 @@ export const appRouter = router({
       await pingDatabase();
       return { status: "ok", database: "connected" };
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown database error";
-      return { status: "error", database: "unreachable", message };
+      // The raw error (connection string details, driver internals, table
+      // names) is logged server-side for operators, but never reaches the
+      // client — an unauthenticated caller must not learn anything about
+      // the database's internals from a health-check failure.
+      console.error("Health check: database is unreachable", err);
+      return {
+        status: "error",
+        database: "unreachable",
+        message: GENERIC_DATABASE_ERROR_MESSAGE,
+      };
     }
   }),
   auth: authRouter,

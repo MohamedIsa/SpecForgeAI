@@ -22,6 +22,8 @@ import {
   sanitizeFileName,
   resolveUploadDir,
   buildStoragePath,
+  matchesFileSignature,
+  MAGIC_BYTES_HEADER_LENGTH,
   type BrdExtension,
 } from "../lib/brd-storage";
 
@@ -81,6 +83,8 @@ interface ScannedUpload {
   byteSize: number;
   checksum: string;
   truncated: boolean;
+  /** Leading bytes of the upload, for the magic-byte signature check. */
+  header: Buffer;
 }
 
 /**
@@ -95,10 +99,14 @@ async function bufferToTempFile(part: MultipartFile): Promise<ScannedUpload> {
   const tempPath = path.join(os.tmpdir(), `specforge-brd-${randomUUID()}`);
   const hash = createHash("sha256");
   let byteSize = 0;
+  let header = Buffer.alloc(0);
 
   part.file.on("data", (chunk: Buffer) => {
     byteSize += chunk.byteLength;
     hash.update(chunk);
+    if (header.length < MAGIC_BYTES_HEADER_LENGTH) {
+      header = Buffer.concat([header, chunk]).subarray(0, MAGIC_BYTES_HEADER_LENGTH);
+    }
   });
 
   try {
@@ -118,6 +126,7 @@ async function bufferToTempFile(part: MultipartFile): Promise<ScannedUpload> {
     checksum: hash.digest("hex"),
     // @fastify/multipart flags the part when it hit the configured size limit.
     truncated: part.file.truncated,
+    header,
   };
 }
 
@@ -190,6 +199,14 @@ async function processFilePart(
 
     if (upload.byteSize === 0) {
       return { status: "rejected", fileName, reason: "File is empty" };
+    }
+
+    if (!matchesFileSignature(extension, upload.header)) {
+      return {
+        status: "rejected",
+        fileName,
+        reason: "File content does not match its extension",
+      };
     }
 
     const verdict: ScanVerdict = await scanStream(createReadStream(upload.tempPath));

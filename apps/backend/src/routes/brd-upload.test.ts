@@ -103,6 +103,13 @@ function buildMultipartBody(files: MultipartFileSpec[]): Buffer {
   return Buffer.concat(parts);
 }
 
+/** A real ZIP local-file-header signature (what every genuine .docx starts
+ *  with) followed by arbitrary filler — enough to pass the magic-byte check
+ *  without needing an actual valid ZIP/OOXML structure. */
+function docxBytes(filler: string): Buffer {
+  return Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from(filler, "utf8")]);
+}
+
 async function upload(options: {
   token: string | null;
   projectId: string | null;
@@ -344,7 +351,7 @@ describe("POST /api/brd/upload — clean files", () => {
       projectId,
       files: [
         { filename: "brief.pdf", content: "%PDF-1.4 fake pdf body" },
-        { filename: "spec.docx", content: "PK fake docx body" },
+        { filename: "spec.docx", content: docxBytes("fake docx body") },
         { filename: "notes.md", content: "# Notes" },
       ],
     });
@@ -389,6 +396,144 @@ describe("POST /api/brd/upload — clean files", () => {
     if (file?.status !== "clean") throw new Error("expected a clean verdict");
     expect(file.byteSize).toBe(Buffer.byteLength(content, "utf8"));
     expect(file.checksum).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("POST /api/brd/upload — magic-byte signature validation (SEC-T5)", () => {
+  it("rejects a .pdf file whose content is not actually a PDF, storing nothing", async () => {
+    const owner = await createUser("Fake PDF Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "disguised.pdf", content: "just plain text, not a real PDF" }],
+    });
+
+    expect(response.statusCode).toBe(400);
+    const [file] = response.body.files;
+    expect(file?.status).toBe("rejected");
+    expect(await storedFileCount(projectId)).toBe(0);
+  });
+
+  it("rejects a .docx file whose content is not actually a ZIP/OOXML archive, storing nothing", async () => {
+    const owner = await createUser("Fake DOCX Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "disguised.docx", content: "just plain text, not a real docx" }],
+    });
+
+    expect(response.statusCode).toBe(400);
+    const [file] = response.body.files;
+    expect(file?.status).toBe("rejected");
+    expect(await storedFileCount(projectId)).toBe(0);
+  });
+
+  it("rejects an executable renamed to .pdf (the disguise this check exists to catch)", async () => {
+    const owner = await createUser("Renamed Executable Owner");
+    const projectId = await createProject(owner.id);
+
+    // The Windows PE/MZ header — a real executable's actual first bytes.
+    const peHeader = Buffer.from([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "totally-a-pdf.pdf", content: peHeader }],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.files[0]?.status).toBe("rejected");
+  });
+
+  it("accepts a genuine PDF (real %PDF- header)", async () => {
+    const owner = await createUser("Real PDF Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "real.pdf", content: "%PDF-1.7\n%real pdf body" }],
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.files[0]?.status).toBe("clean");
+    expect(await storedFileCount(projectId)).toBe(1);
+  });
+
+  it("accepts a genuine DOCX (real ZIP local-file-header signature)", async () => {
+    const owner = await createUser("Real DOCX Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "real.docx", content: docxBytes("real docx body") }],
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.files[0]?.status).toBe("clean");
+    expect(await storedFileCount(projectId)).toBe(1);
+  });
+
+  it("does not signature-check .md files — any text content is accepted", async () => {
+    const owner = await createUser("Markdown Signature Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [{ filename: "notes.md", content: "# Just markdown, no signature to check" }],
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.files[0]?.status).toBe("clean");
+  });
+
+  it("stores the genuine file but still returns 400 when one file in a batch fails the signature check", async () => {
+    const owner = await createUser("Mixed Signature Owner");
+    const projectId = await createProject(owner.id);
+
+    const response = await upload({
+      token: owner.token,
+      projectId,
+      files: [
+        { filename: "real.pdf", content: "%PDF-1.7 genuine" },
+        { filename: "fake.docx", content: "not a real docx" },
+      ],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body.files.find((file) => file.fileName === "real.pdf")?.status).toBe("clean");
+    expect(response.body.files.find((file) => file.fileName === "fake.docx")?.status).toBe(
+      "rejected",
+    );
+    expect(await storedFileCount(projectId)).toBe(1);
+  });
+
+  it("checks the signature before the ClamAV scan — a disguised file is never sent to the scanner", async () => {
+    const owner = await createUser("Signature Before Scan Owner");
+    const projectId = await createProject(owner.id);
+
+    // Point CLAMAV at a port nothing is listening on; if the signature check
+    // ran after the scan attempt, this would surface as a 503 (scanner
+    // unavailable) instead of the 400 the signature check itself returns.
+    const workingPort = process.env.CLAMAV_PORT;
+    process.env.CLAMAV_PORT = "1";
+    try {
+      const response = await upload({
+        token: owner.token,
+        projectId,
+        files: [{ filename: "disguised.pdf", content: "not a real PDF at all" }],
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.body.files[0]?.status).toBe("rejected");
+    } finally {
+      process.env.CLAMAV_PORT = workingPort;
+    }
   });
 });
 

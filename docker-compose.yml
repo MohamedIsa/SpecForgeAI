@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: specforge
     ports:
-      - "5432:5432"
+      # Bound to loopback only — Postgres has no business being reachable
+      # from outside this host; the app connects over 127.0.0.1 already.
+      - "127.0.0.1:5432:5432"
     volumes:
       # :Z tells podman to relabel this bind mount for exclusive container
       # access under SELinux; podman does this by recursively relabeling
@@ -27,7 +29,9 @@ services:
     container_name: specforge-clamav
     restart: unless-stopped
     ports:
-      - "3310:3310"
+      # Bound to loopback only — clamd has no business being reachable from
+      # outside this host; the app connects over 127.0.0.1 already.
+      - "127.0.0.1:3310:3310"
     volumes:
       - clamav-db:/var/lib/clamav
     healthcheck:

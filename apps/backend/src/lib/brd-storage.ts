@@ -48,3 +48,37 @@ export function buildStoragePath(
 ): string {
   return path.join(uploadDir, projectId, `${fileId}.${extension}`);
 }
+
+/**
+ * Magic bytes for the extensions that have a reliable binary signature.
+ * .md has none — it's plain text, so any byte sequence is "valid" — and is
+ * intentionally absent here; matchesFileSignature() trusts .md uploads based
+ * on extension alone. Kept in this Node-only module (not brd-constants.ts)
+ * because Buffer isn't available in the browser bundle brd-constants.ts is
+ * shared into.
+ */
+const MAGIC_BYTES: Partial<Record<BrdExtension, Buffer>> = {
+  pdf: Buffer.from("%PDF-", "ascii"),
+  docx: Buffer.from([0x50, 0x4b, 0x03, 0x04]), // "PK\x03\x04" — the ZIP local-file-header
+  // signature; a .docx is a ZIP archive under the hood, so this is the same
+  // check that would catch any other ZIP-based format masquerading as one.
+};
+
+/** Longest magic byte sequence checked — callers only need to buffer this
+ *  many leading bytes of the upload before a signature check is possible. */
+export const MAGIC_BYTES_HEADER_LENGTH = Math.max(
+  ...Object.values(MAGIC_BYTES).map((sig) => sig.length),
+);
+
+/**
+ * Verifies a file's actual leading bytes match what its claimed extension
+ * says it should be — defense against a renamed/disguised file (e.g. an
+ * executable saved as `payload.pdf`) slipping past extension-only
+ * validation. `header` may be shorter than the expected signature (e.g. a
+ * truncated/empty upload); that never matches, it's never a false accept.
+ */
+export function matchesFileSignature(extension: BrdExtension, header: Buffer): boolean {
+  const expected = MAGIC_BYTES[extension];
+  if (!expected) return true;
+  return header.length >= expected.length && header.subarray(0, expected.length).equals(expected);
+}
