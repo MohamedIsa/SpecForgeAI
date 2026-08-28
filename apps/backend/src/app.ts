@@ -38,6 +38,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   const fastify = Fastify({
     maxParamLength: 5000,
     logger: true,
+    // Behind nginx (docker-compose.staging.yml's "web" service), request.ip
+    // would otherwise be nginx's own container IP for every single request
+    // — collapsing every real client onto one identity and defeating the
+    // per-IP rate limiters in trpc.ts entirely (every user sharing one
+    // budget). Safe as unconditional trust specifically because of this
+    // deployment's topology: the backend container publishes no host port
+    // and is only reachable from other containers on the private "staging"
+    // network, so nginx is the only possible path in — and nginx itself
+    // (apps/web/nginx.conf) always REPLACES X-Forwarded-For with
+    // $remote_addr rather than appending to it, so a client can never
+    // inject a spoofed value that survives to reach this process.
+    trustProxy: true,
   });
 
   await fastify.register(cors, {

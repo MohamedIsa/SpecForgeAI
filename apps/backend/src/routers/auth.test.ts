@@ -168,6 +168,128 @@ describe("authRouter.signup", () => {
   });
 });
 
+describe("refresh cookie secure flag (SEC-T6)", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalAllowInsecure = process.env.ALLOW_INSECURE_COOKIES;
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalAllowInsecure === undefined) delete process.env.ALLOW_INSECURE_COOKIES;
+    else process.env.ALLOW_INSECURE_COOKIES = originalAllowInsecure;
+  });
+
+  it("is secure when X-Forwarded-Proto is https, regardless of NODE_ENV", async () => {
+    process.env.NODE_ENV = "test";
+    const { caller, reply } = createTestCaller(null, {}, undefined, {
+      "x-forwarded-proto": "https",
+    });
+    const result = await caller.auth.signup({
+      fullName: "HTTPS Proxy Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(true);
+  });
+
+  it("is not secure when X-Forwarded-Proto is present but not https", async () => {
+    process.env.NODE_ENV = "test";
+    const { caller, reply } = createTestCaller(null, {}, undefined, {
+      "x-forwarded-proto": "http",
+    });
+    const result = await caller.auth.signup({
+      fullName: "HTTP Proxy Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(false);
+  });
+
+  it("is not secure when X-Forwarded-Proto: http even under NODE_ENV=production — the exact combination the live HTTP-only staging deployment produces on every request", async () => {
+    // Regression test for a real bug caught in review: an earlier `||`-based
+    // implementation treated "header present but not https" the same as
+    // "header absent" and fell through to the NODE_ENV=production check,
+    // marking the cookie Secure on a plain-HTTP box — where browsers then
+    // silently refuse to send it back, breaking session refresh. nginx.conf
+    // always sets X-Forwarded-Proto to $scheme, so on that box the header is
+    // never absent; it's always exactly "http".
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOW_INSECURE_COOKIES;
+    const { caller, reply } = createTestCaller(null, {}, undefined, {
+      "x-forwarded-proto": "http",
+    });
+    const result = await caller.auth.signup({
+      fullName: "Production HTTP Proxy Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(false);
+  });
+
+  it("falls back to NODE_ENV=production when X-Forwarded-Proto is absent", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOW_INSECURE_COOKIES;
+    const { caller, reply } = createTestCaller(null);
+    const result = await caller.auth.signup({
+      fullName: "Direct Production Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(true);
+  });
+
+  it("is not secure outside production when X-Forwarded-Proto is absent (existing test-env behavior)", async () => {
+    process.env.NODE_ENV = "test";
+    const { caller, reply } = createTestCaller(null);
+    const result = await caller.auth.signup({
+      fullName: "Direct Test Env Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(false);
+  });
+
+  it("ALLOW_INSECURE_COOKIES opts out of the production fallback when there is no proxy header", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOW_INSECURE_COOKIES = "true";
+    const { caller, reply } = createTestCaller(null);
+    const result = await caller.auth.signup({
+      fullName: "Insecure Opt-out Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(false);
+  });
+
+  it("X-Forwarded-Proto: https still wins even with ALLOW_INSECURE_COOKIES set", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOW_INSECURE_COOKIES = "true";
+    const { caller, reply } = createTestCaller(null, {}, undefined, {
+      "x-forwarded-proto": "https",
+    });
+    const result = await caller.auth.signup({
+      fullName: "HTTPS Overrides Opt-out Test",
+      email: uniqueEmail(),
+      password: "a-strong-password",
+    });
+    createdUserIds.push(result.user.id);
+    const cookie = requireCookie(reply, "refreshToken");
+    expect(cookie.options?.secure).toBe(true);
+  });
+});
+
 describe("authRouter.login", () => {
   it("authenticates with correct credentials and issues a 15-minute access token", async () => {
     const email = uniqueEmail();

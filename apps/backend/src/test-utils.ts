@@ -38,10 +38,11 @@ export function createTestCaller(
   userId: string | null,
   cookies: Record<string, string | undefined> = {},
   ip: string = randomUUID(),
+  headers: { authorization?: string; "x-forwarded-proto"?: string } = {},
 ): TestCallerResult {
   const reply = new FakeReply();
   const ctx: Context = {
-    req: { headers: {}, cookies, ip },
+    req: { headers, cookies, ip },
     res: reply,
     userId,
   };

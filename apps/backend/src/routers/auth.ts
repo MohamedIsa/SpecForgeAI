@@ -9,7 +9,7 @@ import {
   verifyRefreshToken,
   ACCESS_TOKEN_TTL_SECONDS,
 } from "../lib/jwt";
-import type { ReplyLike } from "../lib/http";
+import type { ReplyLike, RequestLike } from "../lib/http";
 import { signupInput, loginInput } from "../validation";
 
 const SALT_ROUNDS = 12;
@@ -73,10 +73,34 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-function refreshCookieOptions(rememberMe: boolean): CookieSerializeOptions {
+/**
+ * `secure` is scheme-aware (SEC-T6) rather than a flat NODE_ENV check: this
+ * app sits behind nginx terminating (or not terminating) TLS, so the only
+ * way to know whether the ORIGINAL client connection was HTTPS is the
+ * X-Forwarded-Proto header nginx sets — checking `req.protocol` here would
+ * just see the plain-HTTP hop from nginx to the backend container.
+ * X-Forwarded-Proto is safe to trust here for the same reason `req.ip` is
+ * (see trustProxy in app.ts): the backend has no host-published port, so
+ * nginx is the only possible path in, and it always sets this header itself
+ * — meaning on the current HTTP-only staging deployment it is always
+ * *present* as "http", never absent. That distinction matters: falling back
+ * to the NODE_ENV check on anything other than an exact "https" match (e.g.
+ * via `||`) would mark the cookie Secure even on that plain-HTTP box, and
+ * browsers silently refuse to send a Secure cookie over HTTP — breaking
+ * session refresh with no visible error. The NODE_ENV fallback below fires
+ * only when the header is genuinely undefined (e.g. a direct, non-proxied
+ * request in tests), unless ALLOW_INSECURE_COOKIES explicitly opts out — an
+ * escape hatch for deliberately testing the production build without TLS.
+ */
+function refreshCookieOptions(rememberMe: boolean, req: RequestLike): CookieSerializeOptions {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const secure =
+    forwardedProto === undefined
+      ? process.env.NODE_ENV === "production" && !process.env.ALLOW_INSECURE_COOKIES
+      : forwardedProto === "https";
   const base: CookieSerializeOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "strict",
     path: REFRESH_COOKIE_PATH,
   };
@@ -123,10 +147,15 @@ async function pruneExpiredSessions(): Promise<void> {
   await pool.query("DELETE FROM sessions WHERE expires_at <= now()");
 }
 
-function issueAuthResult(user: UserRow, session: SessionRow, res: ReplyLike): AuthResult {
+function issueAuthResult(
+  user: UserRow,
+  session: SessionRow,
+  res: ReplyLike,
+  req: RequestLike,
+): AuthResult {
   const accessToken = signAccessToken(user.id);
   const refreshToken = signRefreshToken(user.id, session.id);
-  res.setCookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions(session.remember_me));
+  res.setCookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions(session.remember_me, req));
   return {
     accessToken,
     expiresInSeconds: ACCESS_TOKEN_TTL_SECONDS,
@@ -167,7 +196,7 @@ export const authRouter = router({
       }
 
       const session = await createSession(user.id, false);
-      return issueAuthResult(user, session, ctx.res);
+      return issueAuthResult(user, session, ctx.res, ctx.req);
     }),
 
   login: authProcedure
@@ -192,7 +221,7 @@ export const authRouter = router({
       }
 
       const session = await createSession(user.id, input.rememberMe);
-      return issueAuthResult(user, session, ctx.res);
+      return issueAuthResult(user, session, ctx.res, ctx.req);
     }),
 
   refreshSession: publicProcedure.mutation(async ({ ctx }): Promise<AuthResult> => {
@@ -235,7 +264,7 @@ export const authRouter = router({
       oldSession.absolute_expires_at,
     );
     await pruneExpiredSessions();
-    return issueAuthResult(user, newSession, ctx.res);
+    return issueAuthResult(user, newSession, ctx.res, ctx.req);
   }),
 
   logout: publicProcedure.mutation(async ({ ctx }): Promise<LogoutResult> => {

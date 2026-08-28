@@ -1,7 +1,7 @@
 import type { CookieSerializeOptions } from "@fastify/cookie";
 
 export interface RequestLike {
-  headers: { authorization?: string };
+  headers: { authorization?: string; "x-forwarded-proto"?: string };
   cookies: Record<string, string | undefined>;
   /** Client IP, used to key the per-procedure rate limiters in trpc.ts. */
   ip: string;
