@@ -45,9 +45,12 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
+        # No `version:` input here — root package.json's "packageManager"
+        # field (added for the Docker build, which relies on `corepack
+        # enable` picking up the exact same pinned version) is now the
+        # single source of truth. Specifying both here and there makes
+        # this action refuse to start with ERR_PNPM_BAD_PM_VERSION.
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
