@@ -8,7 +8,9 @@ backlog.json
 
 .env
 .env.local
-.env.*.local 
+.env.*.local
+.env.staging
+.env.production
 kilo.json
 
 # Ignore index.html at root only, not in app directories

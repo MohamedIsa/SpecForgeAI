@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: specforge-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: specforge
+      POSTGRES_USER: specforge
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env.staging}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U specforge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+    networks:
+      - staging
+
+  clamav:
+    image: clamav/clamav:latest
+    container_name: specforge-staging-clamav
+    restart: unless-stopped
+    volumes:
+      - clamav_db:/var/lib/clamav
+    healthcheck:
+      # The ticket's literal `clamdscan --ping 3310` misreads clamdscan's
+      # --ping flag: it takes a retry COUNT (optionally ":interval"), not a
+      # port number — passing 3310 would mean "ping up to 3310 times", not
+      # "ping port 3310". Using clamdcheck.sh instead, which is what this
+      # repo's own docker-compose.yml already uses (and documents) for the
+      # exact same image, verified present in the image before writing this.
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      # clamd spends several minutes on first start loading its signature
+      # database, during which clamdcheck.sh correctly reports unhealthy —
+      # this must be longer than that load time or compose gives up on a
+      # daemon that was always going to become healthy on its own.
+      start_period: 300s
+    # ~1.5GB is the ticket's stated reservation, but this repo's own
+    # docker-compose.yml already discovered (and documents) that clamd's
+    # live RSS sits close to 1g under normal signature-DB load — 1.5GB
+    # leaves too little headroom before the OOM killer. Reusing the
+    # already-proven 2g limit here rather than reintroducing a known issue.
+    mem_limit: 2g
+    memswap_limit: 2g
+    networks:
+      - staging
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: specforge-staging-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://specforge:${DB_PASSWORD:?DB_PASSWORD must be set in .env.staging}@postgres:5432/specforge
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env.staging}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?DEEPSEEK_API_KEY must be set in .env.staging}
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: "3310"
+      NODE_ENV: production
+      ENABLE_SWAGGER: "false"
+      PORT: "10000"
+      BRD_UPLOAD_DIR: /app/apps/backend/uploads
+    volumes:
+      - uploads_data:/app/apps/backend/uploads
+    networks:
+      - staging
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: specforge-staging-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    networks:
+      - staging
+
+networks:
+  staging:
+    name: specforge-staging
+
+volumes:
+  postgres_data:
+    name: specforge-staging-postgres-data
+  clamav_db:
+    name: specforge-staging-clamav-db
+  uploads_data:
+    name: specforge-staging-uploads-data

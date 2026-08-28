@@ -1,0 +1,88 @@
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build for the Fastify + tRPC backend  .
+#
+# The backend is a pnpm workspace member, so the build stages need enough of
+# the monorepo to satisfy pnpm-lock.yaml's workspace resolution: root
+# manifests, the two packages @specforge/backend actually touches at build
+# time (config-typescript for its tsconfig; design-tokens only because it's
+# a workspace member pnpm expects to find on disk — the backend itself never
+# imports it), and apps/backend's own source. apps/web is deliberately never
+# copied into this image: pnpm discovers workspace projects by walking the
+# filesystem, not by consulting the lockfile for expected paths, so a
+# partial workspace checkout resolves and installs cleanly (verified).
+
+FROM node:22-alpine AS base
+RUN corepack enable
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/config-typescript packages/config-typescript
+COPY packages/design-tokens packages/design-tokens
+COPY apps/backend apps/backend
+
+# ---------------------------------------------------------------------------
+# Stage: builder — full workspace install (incl. devDependencies) so esbuild
+# and the TypeScript toolchain are available, then produce a runnable bundle.
+# ---------------------------------------------------------------------------
+FROM base AS builder
+RUN pnpm install --frozen-lockfile
+
+# Plain `tsc` (this project's "build" script) never rewrites relative import
+# specifiers to include a ".js" extension, because the shared tsconfig uses
+# moduleResolution: "bundler" — correct for tsx/vitest/vite, which do their
+# own resolution, but NOT valid ESM under plain `node`: every extensionless
+# relative import throws ERR_MODULE_NOT_FOUND at runtime (verified directly
+# against this exact tsconfig before writing this Dockerfile). `build:docker`
+# bundles all first-party source into a single file with esbuild instead —
+# every internal relative import gets inlined, so none of them survive into
+# the output — while real npm dependencies (fastify, pg, jsonwebtoken, ...)
+# stay external and are resolved from node_modules as normal at runtime.
+RUN pnpm --filter @specforge/backend run build:docker
+
+# ---------------------------------------------------------------------------
+# Stage: prod-deps — a second, separate install with devDependencies
+# excluded, so the runtime image doesn't carry typescript/eslint/vitest/etc.
+# node-pg-migrate is a real (non-dev) dependency: it runs in production, as
+# the migration step below.
+# ---------------------------------------------------------------------------
+FROM base AS prod-deps
+RUN pnpm install --frozen-lockfile --prod
+
+# ---------------------------------------------------------------------------
+# Stage: runner — copy only what's needed to run the built bundle.
+# ---------------------------------------------------------------------------
+FROM node:22-alpine AS runner
+WORKDIR /app/apps/backend
+ENV NODE_ENV=production
+ENV PORT=10000
+
+RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
+
+# pnpm's node_modules layout is a set of per-workspace-project symlink
+# directories pointing into a single central .pnpm store at the workspace
+# root (verified: apps/backend/node_modules/fastify is a relative symlink
+# three levels up into /app/node_modules/.pnpm/...). Both directories must
+# be copied, at the exact same relative depth as the source stage, for those
+# symlinks to keep resolving.
+COPY --from=prod-deps --chown=nodejs:nodejs /app/node_modules /app/node_modules
+COPY --from=prod-deps --chown=nodejs:nodejs /app/apps/backend/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/migrations ./migrations
+COPY --from=builder --chown=nodejs:nodejs /app/apps/backend/package.json ./package.json
+
+USER nodejs
+
+EXPOSE 10000
+
+# wget is present on node:alpine by default (busybox); curl is not, and
+# adding it would be one more package for no benefit over what's built in.
+# health is a tRPC query, so it's a plain GET — no request body.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:10000/trpc/health | grep -q '"status":"ok"' || exit 1
+
+# Migrations run every start (idempotent — node-pg-migrate skips anything
+# already applied) so a fresh deploy and a routine restart behave the same
+# way; `exec` hands PID 1 to the server so it receives SIGTERM directly for
+# a clean shutdown instead of leaving node-pg-migrate's already-exited
+# process holding that slot.
+ENTRYPOINT ["/bin/sh", "-c", "node node_modules/node-pg-migrate/bin/node-pg-migrate.js up && exec node dist/index.js"]

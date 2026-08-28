@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
 import type { FastifyInstance } from "fastify";
 import { createTestCaller } from "../test-utils";
@@ -24,6 +24,18 @@ afterEach(async () => {
 beforeEach(() => {
   resetRateLimitersForTests();
 });
+
+// Every test in this file drives AUTH_RATE_LIMIT.max / AI_RATE_LIMIT.max
+// real, sequential calls through auth.login/auth.signup, which hash a real
+// bcrypt password (cost 12) on every attempt — including the intentional
+// dummy-hash comparison SEC-T4 added for timing-safety on a failed login.
+// Under `vitest run --coverage`, v8's instrumentation measurably slows each
+// call, and 10 of them in a row can exceed the default 5000ms test timeout.
+// A test that times out doesn't actually stop executing — vitest just stops
+// awaiting it — so its loop keeps consuming rate-limiter budget in the
+// background and corrupts whichever test runs next. Raising this file's
+// test timeout is the fix, not a change to the rate limiter itself.
+vi.setConfig({ testTimeout: 20_000 });
 
 describe("authProcedure — auth.login / auth.signup share one per-IP budget", () => {
   it("returns TOO_MANY_REQUESTS once a client exceeds the shared budget across both procedures", async () => {

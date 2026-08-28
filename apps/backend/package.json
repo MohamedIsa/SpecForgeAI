@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env node_modules/tsx/dist/cli.mjs watch src/index.ts",
     "build": "tsc",
+    "build:docker": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "test": "node --env-file-if-exists=.env node_modules/vitest/vitest.mjs run",
@@ -33,6 +34,7 @@
     "fastify": "^5.0.0",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.12.0",
+    "node-pg-migrate": "^9.0.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
     "zod": "^3.23.0"
@@ -44,8 +46,8 @@
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.10",
+    "esbuild": "^0.28.2",
     "eslint": "^10.8.0",
-    "node-pg-migrate": "^9.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.65.0",

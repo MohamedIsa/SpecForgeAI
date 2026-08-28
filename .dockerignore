@@ -1,0 +1,28 @@
+# Keeps the Docker build context small and prevents host-built artifacts
+# (native bindings, absolute symlinks, coverage output) from leaking into a
+# from-scratch container build.
+**/node_modules
+**/dist
+**/coverage
+*.lcov
+
+.git
+.github
+
+.env
+.env.local
+.env.*.local
+.env.staging*
+apps/backend/.env
+
+# Owned by the Postgres container's internal UID — unreadable by the host
+# user, so it must be excluded outright or the build-context walk itself
+# fails with "permission denied" trying to stat it (verified directly).
+pgdata/
+uploads/
+sonar-export/
+
+infra/staging/terraform.tfvars
+infra/staging/terraform.tfstate
+infra/staging/terraform.tfstate.*
+infra/staging/.terraform/

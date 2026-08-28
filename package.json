@@ -1,6 +1,7 @@
 {
   "name": "specforge-ai",
   "private": true,
+  "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "pnpm --parallel -r run dev",
     "build": "pnpm -r run build",
